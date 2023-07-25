@@ -1,0 +1,17 @@
+{
+  "name": "secure-file-upload-fixture",
+  "version": "0.0.0",
+  "description": "Exercise file upload limits, type checks, storage paths and rejection behavior.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edilec/secure-file-upload-fixture"
+  }
+}
