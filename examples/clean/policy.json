@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1",
+  "maxBytes": 4096,
+  "allowEmpty": false,
+  "allowMultipleExtensions": false,
+  "onUnknown": "reject",
+  "filenamePolicy": {
+    "style": "digest",
+    "prefix": "upload-",
+    "preserveOriginalName": false
+  },
+  "types": [
+    {
+      "extension": "png",
+      "mimeTypes": ["image/png"],
+      "signature": "png",
+      "maxBytes": 2048
+    },
+    {
+      "extension": "jpg",
+      "mimeTypes": ["image/jpeg"],
+      "signature": "jpeg"
+    },
+    {
+      "extension": "pdf",
+      "mimeTypes": ["application/pdf"],
+      "signature": "pdf"
+    },
+    {
+      "extension": "txt",
+      "mimeTypes": ["text/csv", "text/plain"],
+      "signature": null
+    }
+  ]
+}
