@@ -32,17 +32,24 @@ const disagrees = (left, right) => {
 test('the case walk is ordered by code unit, so it decides which cases survive a cut-off', async () => {
   disagrees('Zebra', 'apple')
 
+  // The two cases are deliberately not interchangeable: "apple" declares an
+  // expectation it cannot meet, so if it were the case that ran -- which is
+  // what an English collator would decide -- the report would carry a
+  // disagreement. Under code-unit order it is never built, and the only
+  // findings are the cut-off and the coverage notes.
   const { report } = await cliReport(fixture(policy(), [
-    fixtureCase({ id: 'apple' }),
+    fixtureCase({ id: 'apple', expect: { decision: 'reject', reason: 'size-empty' } }),
     fixtureCase({ id: 'Zebra', filename: 'other.png' }),
   ]), ['--max-cases', '1'])
 
   assert.equal(report.summary.checked, 1)
   assert.equal(report.summary.unevaluated, 1)
-  assert.equal(findingsFor(report, 'too-many-cases').length, 1)
-  // Under collation "apple" would have been the case that ran.
-  assert.equal(findingsFor(report, 'reason-unexercised').length, 1)
   assert.equal(report.summary.accepted, 1)
+  assert.deepEqual(
+    report.findings.map((finding) => finding.ruleId),
+    ['no-rejection-exercised', 'reason-unexercised', 'too-many-cases'],
+  )
+  assert.equal(findingsFor(report, 'expected-reject-but-accepted').length, 0, '"apple" was never built')
 })
 
 test('the stored-name counter follows the same code-unit walk', async () => {
@@ -122,16 +129,20 @@ test('findings inside one file are ordered by pointer, by code unit', async () =
   )
 })
 
-test('two findings about one case are ordered by rule id, and ties fall back to emission order', async () => {
-  const bytes = withSignatureBytes('png', 64)
+test('two findings about one case are ordered by rule id, then by emission order', async () => {
+  // These two rule ids are ordered the same way by both comparators -- that
+  // site is proved equivalent in test/ordering-equivalence.test.mjs rather
+  // than pinned here. What this case does pin is that the stored name a
+  // preserve-the-stem policy produces is reported alongside the mismatch, and
+  // that the pair is emitted in one fixed order.
   const report = await apiReport(fixture(
     policy({ filenamePolicy: { preserveOriginalName: true } }),
     [fixtureCase({ id: 'one', expect: { decision: 'accept', generatedName: 'upload-stale.png' } })],
   ))
 
-  const pointers = report.findings.filter((finding) => finding.location.pointer === '/cases/one')
-  assert.deepEqual(pointers.map((finding) => finding.ruleId), ['generated-name-mismatch', 'generated-name-unsafe'])
-  assert.equal(digestName(bytes, 'png').startsWith('upload-'), true)
+  const about = report.findings.filter((finding) => finding.location.pointer === '/cases/one')
+  assert.deepEqual(about.map((finding) => finding.ruleId), ['generated-name-mismatch', 'generated-name-unsafe'])
+  assert.equal(about[1].evidence, `stored ${digestName(withSignatureBytes('png', 64), 'png').replace('.png', '-photo.png')}, derived ${digestName(withSignatureBytes('png', 64), 'png')}`)
 })
 
 test('two runs over the same inputs emit the same bytes, in the same order', async () => {

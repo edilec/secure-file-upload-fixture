@@ -65,7 +65,6 @@ test('a fixture written to disk is byte-identical to the inert shape that was de
       fixtureCase({ id: 'c-signature', content: { kind: 'signature', signature: 'png', bytes: 64 }, expect: { decision: 'accept' } }),
     ]),
   }, async (root) => {
-    const out = join(root, 'out')
     await withRoot({}, async (outside) => {
       const result = await cliRun(['--root', root, '--suite', 'suite.json', '--out', outside, '--json'])
       assert.equal(result.code, 0, result.stderr)
@@ -77,7 +76,6 @@ test('a fixture written to disk is byte-identical to the inert shape that was de
       assert.deepEqual(await readFile(join(outside, 'b-padding.fixture')), Buffer.alloc(100, 0x41))
       assert.deepEqual(await readFile(join(outside, 'c-signature.fixture')), Buffer.from(withSignature('png', 64)))
     })
-    assert.equal(out.length > 0, true)
   })
 })
 
