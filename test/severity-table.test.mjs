@@ -63,7 +63,22 @@ test('every severity is one of the three the report contract allows', () => {
   }
 })
 
-test('every rule in the table is raised somewhere in the source', async () => {
+/**
+ * The declaration is cut out of the source before the source is searched.
+ *
+ * Scanning `src` for `'<ruleId>'` finds the table itself: every rule id is
+ * spelled in single quotes inside RULE_SEVERITY, in `src/index.mjs`, which is
+ * one of the files being read. So the test passed for any rule id at all, and
+ * a rule invented in the table and raised nowhere was caught only incidentally,
+ * by an unrelated count in test/ordering-equivalence.test.mjs. Removing the
+ * table's own text is what makes the remaining search a search of the code.
+ *
+ * A bare quoted literal, not `ruleId: '...'`, is what is looked for: index.mjs
+ * chooses between `expected-accept-but-rejected` and
+ * `expected-reject-but-accepted` with a ternary, so the stricter form would
+ * fail for two rules the tool really does raise.
+ */
+async function sourceWithoutTheTable() {
   let source = ''
   for (const directory of ['src', 'bin']) {
     for (const name of await readdir(join(projectDirectory, directory))) {
@@ -71,9 +86,24 @@ test('every rule in the table is raised somewhere in the source', async () => {
     }
   }
 
+  const opening = 'export const RULE_SEVERITY = Object.freeze({'
+  const start = source.indexOf(opening)
+  assert.notEqual(start, -1, 'the table must be found before it can be cut out')
+  const end = source.indexOf('})', start)
+  assert.notEqual(end, -1, 'the table must be found before it can be cut out')
+  const table = source.slice(start, end + 2)
+
   for (const ruleId of Object.keys(RULE_SEVERITY)) {
-    const raised = source.includes(`'${ruleId}'`) || source.includes(`ruleId: '${ruleId}'`)
-    assert.equal(raised, true, `${ruleId} is in the table but nothing raises it`)
+    assert.equal(table.includes(`'${ruleId}'`), true, `${ruleId} was not cut out, so the search would find it here`)
+  }
+  return source.replace(table, '')
+}
+
+test('every rule in the table is raised somewhere in the source', async () => {
+  const source = await sourceWithoutTheTable()
+
+  for (const ruleId of Object.keys(RULE_SEVERITY)) {
+    assert.equal(source.includes(`'${ruleId}'`), true, `${ruleId} is in the table but nothing raises it`)
   }
 })
 
