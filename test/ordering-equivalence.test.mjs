@@ -43,7 +43,7 @@ function everyOrderedPairAgrees(values, label) {
 test('every ordered pair of real rule ids collates exactly as it compares by code unit', () => {
   const ruleIds = Object.keys(RULE_SEVERITY)
 
-  assert.equal(ruleIds.length, 25, 'the catalog is the real one, not a sample')
+  assert.equal(ruleIds.length, 26, 'the catalog is the real one, not a sample')
   for (const ruleId of ruleIds) assert.match(ruleId, /^[a-z][a-z0-9-]*[a-z0-9]$/, 'the alphabet this proof rests on')
   assert.equal(everyOrderedPairAgrees(ruleIds, 'rule id'), ruleIds.length ** 2)
 })

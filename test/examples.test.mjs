@@ -24,13 +24,29 @@ test('the clean example passes, and exercises every rejection reason there is', 
 
   assert.equal(result.code, 0)
   assert.equal(report.status, 'pass')
-  assert.deepEqual(report.findings, [], 'a clean example with a finding in it is not a clean example')
+  assert.deepEqual(
+    report.findings.filter((finding) => finding.severity !== 'info').map((finding) => finding.ruleId),
+    [],
+    'a clean example with an error or a warning in it is not a clean example',
+  )
+  // The one thing a pass over this example does not establish, and says so:
+  // its `txt` type declares no signature, so the acceptance of `notes.txt` is
+  // a decision about a name, a media type and a size, with no byte read. A
+  // pass that stayed silent about that would be the example teaching the
+  // wrong lesson.
+  assert.deepEqual(
+    report.findings.map((finding) => finding.ruleId),
+    ['signature-unverifiable'],
+  )
+  assert.match(report.findings[0].message, /^1 of 4 acceptance\(s\) are for a type declaring no signature/)
+  assert.equal(report.findings[0].evidence, 'unverifiable type(s): txt')
   assert.equal(report.summary.checked, 19)
   assert.equal(report.summary.cases, 19)
   assert.equal(report.summary.accepted, 4)
   assert.equal(report.summary.rejected, 15)
   assert.equal(report.summary.rejected, REJECTION_REASONS.length, 'one fixture per reason')
   assert.equal(report.summary.types, 4)
+  assert.equal(report.summary.typesWithoutSignature, 1)
   assert.equal(report.summary.unevaluated, 0)
   assert.match(result.stderr, /status pass/)
 })

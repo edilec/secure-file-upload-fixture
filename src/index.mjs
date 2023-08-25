@@ -93,6 +93,7 @@ export const RULE_SEVERITY = Object.freeze({
   'policy-no-types': 'error',
   'reason-mismatch': 'error',
   'reason-unexercised': 'info',
+  'signature-unverifiable': 'info',
   'suite-invalid': 'error',
   'too-many-cases': 'error',
   'too-many-findings': 'error',
@@ -261,6 +262,7 @@ function buildReport(sink, state, counts, limits) {
       accepted: state.accepted,
       rejected: state.rejected,
       types: counts.compiledTypes,
+      typesWithoutSignature: counts.unverifiableTypes.length,
       bytesGenerated: state.bytesGenerated,
       written: state.written,
     },
@@ -457,8 +459,9 @@ export async function runFixtureSuite(options = {}) {
   const sink = new FindingSink()
   const state = {
     checked: 0, accepted: 0, rejected: 0, bytesGenerated: 0, written: 0, incomplete: false,
+    acceptedUnverifiable: 0, acceptedUnverifiableTypes: new Set(),
   }
-  const counts = { declaredCases: 0, compiledTypes: 0, suiteName, policyName }
+  const counts = { declaredCases: 0, compiledTypes: 0, unverifiableTypes: [], suiteName, policyName }
 
   const documents = {}
   const inputs = []
@@ -496,6 +499,7 @@ export async function runFixtureSuite(options = {}) {
     if (policy === null) state.incomplete = true
     else {
       counts.compiledTypes = policy.compiledTypes
+      counts.unverifiableTypes = policy.unverifiableTypes
       // A policy missing one of its types is not the policy its author wrote.
       if (policy.compiledTypes !== policy.declaredTypes) state.incomplete = true
       if (policy.types.size === 0) {
@@ -596,6 +600,14 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
     if (outcome.decision === 'accept') {
       state.accepted += 1
       sequence += 1
+      // Accepted on its name, its declared media type and its size, with not
+      // one byte of it looked at. Tallied here rather than inferred from the
+      // policy later: the policy says which types *could* be unverifiable, and
+      // only the decision says which acceptances actually were.
+      if (outcome.type.signature === null) {
+        state.acceptedUnverifiable += 1
+        state.acceptedUnverifiableTypes.add(outcome.type.extension)
+      }
     } else {
       state.rejected += 1
     }
@@ -703,6 +715,35 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
       pointer: '/cases',
       message: `All ${state.checked} evaluated case(s) were accepted, so this run exercised no rejection and says nothing about what the policy refuses.`,
       suggestion: 'Add a fixture for each rejection reason the policy is meant to enforce.',
+    })
+  }
+
+  /**
+   * An acceptance nobody checked a byte of.
+   *
+   * `"signature": null` is a deliberate statement that a type's bytes cannot be
+   * checked -- `text/plain` has no magic number -- so it is not a defect and
+   * the run is not incomplete. What it is, is a decision reached without the
+   * evidence the tool's name suggests: a run whose every type declared a null
+   * signature accepted a fixture whose leading bytes were `MZ` under a `.txt`
+   * name, reported status `pass` at exit 0, and said nothing anywhere about a
+   * content check that never happened. That is absence being summarised as
+   * evidence, and this is the line that stops it.
+   *
+   * Raised from the acceptances rather than from the policy: the policy says
+   * which types *could* go unchecked, and only the decisions say which ones
+   * actually did. A policy that lists an unverifiable type no fixture ever
+   * reaches made no claim this run relied on, and a finding about it would be
+   * noise on every report.
+   */
+  if (state.acceptedUnverifiable > 0) {
+    sink.add({
+      file: suiteName,
+      ruleId: 'signature-unverifiable',
+      pointer: '/cases',
+      message: `${state.acceptedUnverifiable} of ${state.accepted} acceptance(s) are for a type declaring no signature, so those fixtures were accepted on their name, declared media type and size with no byte of their content checked.`,
+      evidence: `unverifiable type(s): ${[...state.acceptedUnverifiableTypes].sort(byCodeUnit).join(', ')}`,
+      suggestion: 'A null signature is a statement that these bytes cannot be checked, not a defect. Read each of these acceptances as a decision about a name, a declared media type and a size.',
     })
   }
 

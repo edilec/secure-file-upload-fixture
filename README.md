@@ -189,8 +189,14 @@ conclude any of the following.
   the first bytes are consistent with a declared type, and says nothing about
   the rest of the file.
 - **That a type without a signature is what it claims.** `"signature": null` is
-  an explicit statement that these bytes cannot be checked. The report counts
-  those types rather than quietly treating them as verified.
+  an explicit statement that these bytes cannot be checked. `summary.types`
+  counts every compiled type and `summary.typesWithoutSignature` counts the
+  ones whose bytes cannot be, and every acceptance made under one of them is
+  reported as `signature-unverifiable` — an `info` finding naming how many of
+  the run's acceptances were reached on a name, a declared media type and a
+  size alone. A type nothing reached is counted and not reported, because a
+  finding about a claim the run never made is noise. None of this fails the
+  run: a null signature is a statement, not a defect.
 - **Anything about a decoder, a parser or a resizer.** The fixtures contain
   nothing for one to read. Malformed-image handling, zip-bomb behaviour, EXIF
   and SVG script content are all out of scope by construction — there is no

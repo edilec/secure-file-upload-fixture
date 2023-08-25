@@ -44,7 +44,7 @@ binary and pins the status, the summary counts and the exit code instead.
 | `filenamePolicy.preserveOriginalName` | yes | Stated explicitly. `true` appends the sanitised uploaded stem, and every stored name it produces is reported under `generated-name-unsafe`. |
 | `types[].extension` | yes | 1–8 lowercase letters or digits. This is the canonical extension a stored file is named with. |
 | `types[].mimeTypes` | yes | 1–20 lowercase `type/subtype` values, without parameters. |
-| `types[].signature` | yes | A known signature name, or `null` stated on purpose to record that this type's bytes cannot be checked. |
+| `types[].signature` | yes | A known signature name, or `null` stated on purpose to record that this type's bytes cannot be checked. A `null` type is counted in `summary.typesWithoutSignature`, and every acceptance made under one raises `signature-unverifiable`. |
 | `types[].maxBytes` | no | A per-type ceiling that overrides `maxBytes` in both directions. |
 
 Unknown keys are refused at every level, and the *value* of a refused key is
@@ -175,6 +175,7 @@ exit code is 2 whatever the severity says.
 | `policy-no-types` | `error` | no | the allow-list is empty, so the suite proves nothing about what may be uploaded |
 | `reason-mismatch` | `error` | no | the fixture was refused for a different reason than it declared |
 | `reason-unexercised` | `info` | no | some rejection reasons were never reached by this suite |
+| `signature-unverifiable` | `info` | no | the policy compiles at least one type declaring `"signature": null`, so no fixture of that type had its bytes checked |
 | `suite-invalid` | `error` | yes | the suite document is malformed |
 | `too-many-cases` | `error` | yes | the walk stopped at `maxCases` |
 | `too-many-findings` | `error` | yes | the report was truncated at `maxFindings` |

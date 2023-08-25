@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { cliReport, findingsFor, fixture, fixtureCase, policy, raisedRules, rejectCase, suiteOf } from './support.mjs'
+import { cliReport, findingsFor, fixture, fixtureCase, policy, raisedRules, rejectCase, suiteOf, txtType } from './support.mjs'
 
 /**
  * What must never be a pass.
@@ -112,4 +112,73 @@ test('a run that obtained all of its evidence and agreed with all of it is the o
   assert.equal(report.summary.checked, 2)
   assert.equal(report.summary.unevaluated, 0)
   assert.equal(report.summary.errors, 0)
+})
+
+/**
+ * A decision reached without the evidence the tool's name suggests.
+ *
+ * `"signature": null` is a deliberate statement that a type's bytes cannot be
+ * checked -- `text/plain` has no magic number -- so it is not a defect and the
+ * run is not incomplete. It is still something the report has to say. Before
+ * it did, a run whose every type declared a null signature accepted a fixture
+ * whose leading bytes are `MZ` under a `.txt` name, reported status `pass` at
+ * exit 0, and was indistinguishable from a run where every type was
+ * byte-checked. README claimed "the report counts those types"; nothing in
+ * `src/` counted them and `summary.types` was the total compiled count.
+ *
+ * Both halves are pinned. Remove the count and `typesWithoutSignature` is
+ * gone; remove the finding and a reader of the findings list is told nothing.
+ */
+test('an acceptance whose type has no signature is reported as never having been byte-checked', async () => {
+  const csvType = { extension: 'csv', mimeTypes: ['text/csv'], signature: null }
+  const { code, report } = await cliReport(fixture(
+    policy({ types: [txtType(), csvType] }),
+    [
+      // Leading bytes 0x4d ('M'), which is where an MZ executable starts. The
+      // policy has no signature for `txt`, so nothing looks at them.
+      fixtureCase({
+        id: 'accept-txt',
+        filename: 'notes.txt',
+        declaredMimeType: 'text/plain',
+        content: { kind: 'padding', byte: 0x4d, bytes: 12 },
+        expect: { decision: 'accept' },
+      }),
+      rejectCase({ id: 'reject-exe', expect: { decision: 'reject', reason: 'extension-unknown' } }),
+    ],
+  ))
+
+  assert.equal(code, 0)
+  assert.equal(report.status, 'pass', 'a null signature is a statement, not a defect')
+  assert.equal(report.summary.errors, 0)
+  assert.equal(report.summary.warnings, 0)
+
+  assert.equal(report.summary.types, 2)
+  assert.equal(report.summary.typesWithoutSignature, 2, 'the report counts the types whose bytes cannot be checked')
+
+  const disclosed = findingsFor(report, 'signature-unverifiable')
+  assert.equal(disclosed.length, 1)
+  assert.match(disclosed[0].message, /^1 of 1 acceptance\(s\) are for a type declaring no signature/)
+  assert.match(disclosed[0].message, /no byte of their content checked/)
+  assert.equal(disclosed[0].evidence, 'unverifiable type(s): txt')
+  assert.equal(disclosed[0].severity, 'info')
+})
+
+/**
+ * The other half of the same rule: it is raised from the acceptances, not from
+ * the policy. A policy that lists an unverifiable type no fixture ever reaches
+ * made no claim this run relied on, and a finding about it on every report is
+ * noise a reader learns to skip past -- which is how the one that matters goes
+ * unread.
+ */
+test('an unverifiable type no fixture reached raises nothing, and is still counted', async () => {
+  const { code, report } = await cliReport(fixture(
+    policy(),
+    [fixtureCase(), rejectCase()],
+  ))
+
+  assert.equal(code, 0)
+  assert.equal(report.status, 'pass')
+  assert.equal(report.summary.typesWithoutSignature, 1, 'the txt type in the default policy declares no signature')
+  assert.equal(report.summary.accepted, 1)
+  assert.equal(findingsFor(report, 'signature-unverifiable').length, 0)
 })

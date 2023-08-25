@@ -271,5 +271,15 @@ export function compilePolicy(sink, file, document) {
     mimeIndex,
     declaredTypes: document.types.length,
     compiledTypes: compiled,
+    // The extensions whose bytes this policy says cannot be checked. Named
+    // rather than counted, because "two types are unverifiable" and "the two
+    // types your executables would arrive under are unverifiable" are
+    // different sentences to the person reading the report. An extension is
+    // already bounded to 1-8 lowercase letters or digits by compileType, so
+    // this list carries nothing from the file that the type table does not.
+    unverifiableTypes: [...types.values()]
+      .filter((type) => type.signature === null)
+      .map((type) => type.extension)
+      .sort(byCodeUnit),
   }
 }
