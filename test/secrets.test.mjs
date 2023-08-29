@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { cliRun, fixture, fixtureCase, policy, suiteOf, withRoot } from './support.mjs'
+import { readFile, readdir } from 'node:fs/promises'
+import { join } from 'node:path'
+
+import { byCodeUnit } from '../src/index.mjs'
+import { cliRun, fixture, fixtureCase, pngType, policy, suiteOf, txtType, withRoot } from './support.mjs'
 
 /**
  * What a refused value must never do: appear in the report.
@@ -130,4 +134,84 @@ test('the one thing that is echoed is the filename of a case that was evaluated,
     assert.equal(result.code, 1)
     assert.match(result.stdout, /quarterly-report\.png/)
   })
+})
+
+/**
+ * The echo boundary, enumerated rather than recalled.
+ *
+ * README named two untrusted values as echoed on purpose -- the filename and
+ * the declared media type of a case that was evaluated -- and advised against
+ * putting a secret in a fixture filename. Three more reach output: a valid
+ * case id, `expect.generatedName`, and the NAME of any key the tool does not
+ * know. None is a refused value, so none was covered by the documented
+ * carve-out, and the advice was incomplete about where not to put a secret.
+ *
+ * Each of these is there for a reason. A finding that cannot say which case,
+ * which key, or what stored name was expected is a finding nobody can act on.
+ * The risk is drift: one more field quoted into one more message and a
+ * boundary everybody still believes has quietly moved. So it is measured --
+ * every plausible carrier of a string gets the canary in turn, and the set
+ * that comes back must be exactly the declared set. A new echo fails this
+ * test; so does an echo that disappears, because a stale list is the thing
+ * being guarded against.
+ */
+
+const ECHOED_ON_PURPOSE = Object.freeze([
+  'an unknown key name in a case',
+  'an unknown key name in a policy type',
+  'an unknown key name in content',
+  'an unknown key name in expect',
+  'an unknown key name in filenamePolicy',
+  'an unknown key name in the policy',
+  'an unknown key name in the suite',
+  'the declared media type of an evaluated case',
+  'the filename of an evaluated case',
+  'the generatedName an expectation declared',
+  'the id of an evaluated case',
+])
+
+const MISMATCH = Object.freeze({ decision: 'reject', reason: 'size-empty' })
+
+function echoPlantings(canary) {
+  const plant = (policyDocument, cases) => fixture(policyDocument, cases)
+  return {
+    'an unknown key name in the policy': plant({ ...policy(), [canary]: 1 }, [fixtureCase()]),
+    'an unknown key value in the policy': plant({ ...policy(), spare: canary }, [fixtureCase()]),
+    'an unknown key name in a policy type': plant(policy({ types: [pngType({ [canary]: 1 }), txtType()] }), [fixtureCase()]),
+    'an unknown key name in filenamePolicy': plant(policy({ filenamePolicy: { [canary]: 1 } }), [fixtureCase()]),
+    'a refused filenamePolicy prefix': plant(policy({ filenamePolicy: { prefix: canary } }), [fixtureCase()]),
+    'a refused type extension': plant(policy({ types: [pngType({ extension: canary }), txtType()] }), [fixtureCase()]),
+    'a refused type media type': plant(policy({ types: [pngType({ mimeTypes: [canary] }), txtType()] }), [fixtureCase()]),
+    'an unknown key name in the suite': { 'policy.json': policy(), 'suite.json': { ...suiteOf([fixtureCase()]), [canary]: 1 } },
+    'an unknown key name in a case': plant(policy(), [{ ...fixtureCase(), [canary]: 1 }]),
+    'an unknown key name in content': plant(policy(), [fixtureCase({ content: { kind: 'padding', byte: 0, bytes: 4, [canary]: 1 } })]),
+    'an unknown key name in expect': plant(policy(), [fixtureCase({ expect: { decision: 'accept', [canary]: 1 } })]),
+    'the id of an evaluated case': plant(policy(), [fixtureCase({ id: canary, expect: MISMATCH })]),
+    'a refused case id': plant(policy(), [fixtureCase({ id: `${canary} not a valid id!` })]),
+    'the description of an evaluated case': plant(policy(), [fixtureCase({ description: canary, expect: MISMATCH })]),
+    'the filename of an evaluated case': plant(policy(), [fixtureCase({ filename: `${canary}.png`, expect: MISMATCH })]),
+    'the declared media type of an evaluated case': plant(policy(), [fixtureCase({ declaredMimeType: canary })]),
+    'the generatedName an expectation declared': plant(policy(), [fixtureCase({ expect: { decision: 'accept', generatedName: canary } })]),
+    'a refused expectation reason': plant(policy(), [fixtureCase({ expect: { decision: 'reject', reason: canary } })]),
+  }
+}
+
+test('exactly eleven carriers put a string from a file into the output, and they are the documented eleven', async () => {
+  const canary = CANARIES['AWS documented example key']
+  const echoed = []
+
+  for (const [where, files] of Object.entries(echoPlantings(canary))) {
+    await withRoot(files, async (root) => {
+      await withRoot({}, async (out) => {
+        const result = await cliRun(['--root', root, '--out', out])
+        let written = ''
+        for (const name of await readdir(out)) {
+          written += `${name}\n${await readFile(join(out, name), 'latin1')}`
+        }
+        if ([result.stdout, result.stderr, written].some((text) => text.includes(canary))) echoed.push(where)
+      })
+    })
+  }
+
+  assert.deepEqual(echoed.sort(byCodeUnit), [...ECHOED_ON_PURPOSE], 'the set of strings this tool echoes has changed')
 })

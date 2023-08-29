@@ -210,12 +210,20 @@ fuzz, or produce an exploit of any kind; it does not compile a regular
 expression from either input document, because a pattern from a file cannot be
 bounded from inside JavaScript; and it never overwrites a file.
 
-Two untrusted values are echoed on purpose — the **filename** and the
-**declared media type** of a case that was actually evaluated — because the
-decision is a decision about them. Every value the tool *refuses* is described
-(`a string of 40 character(s)`) and never reproduced, the JSON parser's own
-message included, since it quotes the text around the error. Do not put a
-secret in a fixture filename.
+Five untrusted strings are echoed on purpose, and that is the whole list: the
+**filename** and the **declared media type** of a case that was evaluated, the
+**id** of that case (which also names its `<id>.fixture` file under `--out`),
+an **`expect.generatedName`** that did not match, and the **name** — never the
+value — of a key the tool does not know. A finding that cannot say which case,
+which key or what stored name was expected is a finding nobody can act on.
+`docs/upload-policy-rules.md` tabulates where each one appears, and
+`test/secrets.test.mjs` measures the list by planting a canary in every
+plausible carrier in turn, so it fails if the list grows.
+
+Every value the tool *refuses* is described (`a string of 40 character(s)`) and
+never reproduced, the JSON parser's own message included, since it quotes the
+text around the error. Do not put a secret in a fixture filename, a case id, a
+declared media type, a `generatedName`, or a key name.
 
 ## Determinism
 
