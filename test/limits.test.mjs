@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { DEFAULT_LIMITS, HARD_LIMITS, validateLimits } from '../src/index.mjs'
+import { DEFAULT_LIMITS, FindingSink, HARD_LIMITS, compareRows, validateLimits } from '../src/index.mjs'
 import { apiReport, cliReport, findingsFor, fixture, fixtureCase, policy, raisedRules, rejectCase } from './support.mjs'
 
 /**
@@ -121,4 +121,71 @@ test('every limit flag on the command line reaches the limit it names', async ()
     assert.equal(raisedRules(report).includes(ruleId), true, `${flag} must reach ${ruleId}`)
     assert.equal(report.status, 'incomplete', `${flag} must not report a pass`)
   }
+})
+
+/**
+ * The finding sink, bounded by the report cap rather than by the input.
+ *
+ * Every row a run produced was kept until the report was assembled, so peak
+ * memory tracked the number of *declared* cases and not the number of findings
+ * anybody would read: a 64 MiB suite of malformed cases held gigabytes to
+ * produce a report of 1000 findings. `maxCases` cannot bound it -- the compile
+ * walk has to see every declared case before the cases are ordered by code
+ * unit and cut, which is what test/ordering.test.mjs pins -- so the bound is
+ * in the sink.
+ *
+ * The bound must not change the report, so the property asserted is equality
+ * with the rows an unbounded sink would have handed to `compareRows`, not
+ * merely "some rows survived". The rows arrive worst-case: each one sorts
+ * before every row already held, so every trim has to discard rows it is
+ * holding rather than rows arriving later.
+ */
+test('the finding sink holds the report cap, not the input, and keeps exactly the rows the report wants', () => {
+  const limit = 4
+  const arriving = 100
+  const bounded = new FindingSink(limit)
+  const unbounded = []
+
+  for (let n = arriving; n > 0; n -= 1) {
+    const row = {
+      file: 'suite.json',
+      pointer: `/cases/${String(n).padStart(4, '0')}`,
+      ruleId: 'case-invalid',
+      message: `case ${n}`,
+    }
+    bounded.add(row)
+    unbounded.push({ pointer: '', ...row, order: unbounded.length })
+    assert.equal(bounded.rows.length <= limit * 2, true, `the sink grew to ${bounded.rows.length}, past twice the cap`)
+  }
+
+  assert.equal(bounded.total, arriving, 'the truncation notice counts every row ever added')
+  assert.deepEqual(
+    [...bounded.rows].sort(compareRows).slice(0, limit),
+    [...unbounded].sort(compareRows).slice(0, limit),
+    'the rows kept are not the rows the report would have printed',
+  )
+})
+
+test('a truncated report is the same report the unbounded sink would have produced', async () => {
+  const failing = Array.from({ length: 40 }, (unused, index) => fixtureCase({
+    id: `case-${String(index).padStart(3, '0')}`,
+    expect: { decision: 'reject', reason: 'size-empty' },
+  }))
+
+  const whole = await apiReport(fixture(policy(), failing), { limits: { maxFindings: 1000 } })
+  const cut = await apiReport(fixture(policy(), failing), { limits: { maxFindings: 5 } })
+
+  assert.equal(whole.findings.length > 5, true, 'the corpus must really exceed the cut')
+  assert.equal(cut.findings.length, 5)
+  // The truncation notice carries an empty pointer, so it sorts ahead of every
+  // `/cases` finding; what the cut keeps is the first four of the whole report
+  // and that notice, in the report's own order.
+  assert.deepEqual(
+    cut.findings.filter((finding) => finding.ruleId !== 'too-many-findings'),
+    whole.findings.slice(0, 4),
+    'the cut report is not a prefix of the whole one',
+  )
+  const notice = cut.findings.filter((finding) => finding.ruleId === 'too-many-findings')
+  assert.equal(notice.length, 1)
+  assert.match(notice[0].message, new RegExp(`${whole.findings.length - 4} were not reported`))
 })

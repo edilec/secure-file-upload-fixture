@@ -197,6 +197,14 @@ the walk — `maxCases` and `maxTotalBytes` — are re-checked *after* the loop 
 well as inside it, and every conclusion the loop was responsible for is
 downgraded when they fire.
 
+`maxFindings` bounds what the run *holds*, not only what it prints. The sink
+keeps at most twice the cap and trims back to it by the report's own sort, so
+peak memory tracks the cap rather than the number of declared cases; the
+truncation notice counts every finding ever produced, and the report is
+byte-identical to the one an unbounded sink would have written. `maxCases`
+cannot serve as that bound, because the compile walk has to see every declared
+case before the cases are ordered by code unit and cut.
+
 ## Determinism
 
 - Findings sort by `location.file`, then `location.pointer`, then `ruleId`,

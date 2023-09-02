@@ -167,13 +167,41 @@ function validateName(name, flag) {
   return name
 }
 
-class FindingSink {
-  constructor() {
+/**
+ * The findings a run produces, bounded by the report cap rather than by the
+ * input.
+ *
+ * Every row was kept until the report was assembled, so peak memory tracked
+ * the number of *declared* cases and not the number of findings anybody would
+ * ever read: a 64 MiB suite declaring 7.4 million malformed cases held 3.68 GB
+ * to produce a report of 1000 findings. `maxCases` does not bound this,
+ * because the compile walk has to see every declared case before the walk is
+ * ordered by code unit and cut -- see `compileSuite`, and the ordering test
+ * that pins which cases survive a cut-off.
+ *
+ * So the bound goes here instead. The sink keeps at most twice the cap and
+ * trims back to the cap whenever it passes it, and the trim is by the report's
+ * own `compareRows`. The output is unchanged, exactly: `compareRows` is a
+ * total order, so the rows kept are the smallest ones seen so far, every row
+ * dropped is greater than all of them, and a row arriving later either
+ * displaces a greater row or is itself greater than all of them. `total`
+ * counts every row ever added, so the truncation notice still says how many
+ * were dropped.
+ */
+export class FindingSink {
+  constructor(limit) {
     this.rows = []
+    this.total = 0
+    this.limit = limit
   }
 
   add(row) {
-    this.rows.push({ pointer: '', ...row, order: this.rows.length })
+    this.rows.push({ pointer: '', ...row, order: this.total })
+    this.total += 1
+    if (this.rows.length > this.limit * 2) {
+      this.rows.sort(compareRows)
+      this.rows.length = this.limit
+    }
   }
 }
 
@@ -224,8 +252,8 @@ function buildReport(sink, state, counts, limits) {
   let rows = [...sink.rows].sort(compareRows)
   let truncated = false
 
-  if (rows.length > limits.maxFindings) {
-    const dropped = rows.length - limits.maxFindings + 1
+  if (sink.total > limits.maxFindings) {
+    const dropped = sink.total - limits.maxFindings + 1
     rows = rows.slice(0, limits.maxFindings - 1)
     rows.push({
       file: counts.suiteName,
@@ -456,7 +484,7 @@ export async function runFixtureSuite(options = {}) {
     if (!outInfo.isDirectory()) throw new Error('--out must be a directory')
   }
 
-  const sink = new FindingSink()
+  const sink = new FindingSink(limits.maxFindings)
   const state = {
     checked: 0, accepted: 0, rejected: 0, bytesGenerated: 0, written: 0, incomplete: false,
     acceptedUnverifiable: 0, acceptedUnverifiableTypes: new Set(),
