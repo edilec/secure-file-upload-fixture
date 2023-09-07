@@ -22,7 +22,7 @@ test('--help and --version go to stdout and exit 0', async () => {
     const result = await cliRun([flag])
     assert.equal(result.code, 0)
     assert.match(result.stdout, /Usage:/)
-    assert.match(result.stdout, /Exit codes:/)
+    assert.match(result.stdout, /Exit codes/)
     assert.match(result.stdout, /inert/)
     assert.equal(result.stderr, '')
   }
@@ -31,6 +31,37 @@ test('--help and --version go to stdout and exit 0', async () => {
     assert.equal(result.code, 0)
     assert.equal(result.stdout, '0.1.0\n')
   }
+})
+
+/**
+ * "Exit 0 means stdout is the report" is a contract a consumer writes code
+ * against, and it is false for `--help` and `--version`: both exit 0 with text
+ * that is not JSON. They are not runs -- they answer about the tool, read
+ * neither input and reach no policy decision -- so the fix is to say so where
+ * a consumer reads the contract rather than to leave a parser to discover it.
+ *
+ * Both halves are pinned here so the wording cannot drift back: every way of
+ * asking for the answer-about-the-tool must say in its own text that it is
+ * outside the exit table, and every run that exits 0 must really put a
+ * parseable report on stdout.
+ */
+test('the exit-0 contract is stated for runs, and the two flags outside it say so', async () => {
+  const help = await cliRun(['--help'])
+
+  assert.equal(help.code, 0)
+  assert.throws(() => JSON.parse(help.stdout), 'the help text is not a report, which is the whole point')
+  assert.match(help.stdout, /--help and --version are not runs/)
+  assert.match(help.stdout, /Exit codes \(of a run; --help and --version exit 0 with their own text\):/)
+
+  const manual = await readFile(new URL('../README.md', import.meta.url), 'utf8')
+  assert.match(manual, /`--help` and `--version` are outside this table/)
+
+  await withRoot(fixture(policy(), [fixtureCase()]), async (root) => {
+    const run = await cliRun(['--root', root, '--json'])
+
+    assert.equal(run.code, 0)
+    assert.equal(JSON.parse(run.stdout).status, 'pass', 'a run that exits 0 really does put the report on stdout')
+  })
 })
 
 test('the version the binary prints is the version in package.json', async () => {

@@ -53,8 +53,13 @@ Every option that carries a value may be given only once: a repeated flag is a
 configuration error, not a silent last-wins.
 
 Output:
-  stdout  the JSON report only, so it can be piped straight into a parser
+  stdout  a run puts the JSON report there and nothing else, so it can be
+          piped straight into a parser
   stderr  the human summary and diagnostics
+
+  --help and --version are not runs: they answer about the tool, print on
+  stdout and exit 0 without reading either input, so a script that parses
+  stdout should not pass them.
 
 What a pass means:
   Every fixture that was built reached the decision it declared, for the reason
@@ -63,7 +68,7 @@ What a pass means:
   The signature check is a byte comparison at fixed offsets; it is not a parser
   and not a scanner.
 
-Exit codes:
+Exit codes (of a run; --help and --version exit 0 with their own text):
   0  every fixture reached the outcome it expected
   1  at least one fixture reached a different outcome
   2  invalid configuration (no report on stdout), or evidence that could not be

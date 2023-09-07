@@ -34,9 +34,12 @@ secure-file-upload-fixture --root examples/clean
 secure-file-upload-fixture --root examples/broken --json | jq '.findings[].ruleId'
 ```
 
-The JSON report goes to stdout and nothing else does, so stdout pipes straight
-into a parser. The human summary and every diagnostic go to stderr; `--json`
-suppresses the summary.
+A **run** puts the JSON report on stdout and nothing else, so stdout pipes
+straight into a parser. The human summary and every diagnostic go to stderr;
+`--json` suppresses the summary. `--help` and `-h`, `--version` and `-v` are
+not runs: they answer about the tool rather than about a policy, print their
+answer on stdout and exit 0 without reading either input. A script that parses
+stdout should not pass them.
 
 ```
 policy policy.json: 4 type(s) compiled.
@@ -68,6 +71,9 @@ process.exitCode = exitCodeFor(report)
 ```
 
 ### Exit codes
+
+`--help` and `--version` are outside this table: they exit 0 with their own
+text on stdout, having read nothing.
 
 | Exit | Meaning | stdout |
 | ---: | --- | --- |
