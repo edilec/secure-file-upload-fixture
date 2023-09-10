@@ -25,19 +25,39 @@ import { DEFAULT_LIMITS, RULE_SEVERITY, SIGNATURE_NAMES, byCodeUnit } from '../s
 
 const collator = new Intl.Collator('en')
 
-function everyOrderedPairAgrees(values, label) {
-  let compared = 0
+/**
+ * Every ordered pair on which the two comparisons disagree, and nothing else.
+ *
+ * The earlier shape of this helper asserted inside the loop and returned the
+ * number of pairs it had walked, which it incremented unconditionally -- so
+ * `assert.equal(everyOrderedPairAgrees(values), values.length ** 2)` compared a
+ * counter against the only value it could hold. It could not fail, and it sat
+ * on the line that reads like the one carrying the proof.
+ *
+ * Returning the disagreements puts the claim in the caller, where a
+ * disagreement is a value the assertion can show rather than a throw from
+ * inside a helper.
+ */
+function orderedPairsThatDisagree(values) {
+  const disagreements = []
   for (const left of values) {
     for (const right of values) {
-      assert.equal(
-        Math.sign(byCodeUnit(left, right)),
-        Math.sign(collator.compare(left, right)),
-        `${label}: "${left}" vs "${right}" would move under collation`,
-      )
-      compared += 1
+      if (Math.sign(byCodeUnit(left, right)) !== Math.sign(collator.compare(left, right))) {
+        disagreements.push(`"${left}" vs "${right}"`)
+      }
     }
   }
-  return compared
+  return disagreements
+}
+
+/**
+ * The size of the enumeration. A proof over 676 pairs that quietly became a
+ * proof over 625 because a rule was dropped is a weaker proof than the one
+ * claimed, and this is the line that says so.
+ */
+function assertEnumerated(values, pairs, label) {
+  assert.equal(new Set(values).size, values.length, `${label}: a duplicate would shrink the enumeration`)
+  assert.equal(values.length ** 2, pairs, `${label}: the enumeration is no longer the ${pairs} pairs claimed`)
 }
 
 test('every ordered pair of real rule ids collates exactly as it compares by code unit', () => {
@@ -45,7 +65,8 @@ test('every ordered pair of real rule ids collates exactly as it compares by cod
 
   assert.equal(ruleIds.length, 26, 'the catalog is the real one, not a sample')
   for (const ruleId of ruleIds) assert.match(ruleId, /^[a-z][a-z0-9-]*[a-z0-9]$/, 'the alphabet this proof rests on')
-  assert.equal(everyOrderedPairAgrees(ruleIds, 'rule id'), ruleIds.length ** 2)
+  assertEnumerated(ruleIds, 676, 'rule id')
+  assert.deepEqual(orderedPairsThatDisagree(ruleIds), [], 'these rule ids would move under collation')
 })
 
 test('every ordered pair of real limit names collates exactly as it compares by code unit', () => {
@@ -53,13 +74,15 @@ test('every ordered pair of real limit names collates exactly as it compares by 
 
   assert.equal(names.length, 5)
   for (const name of names) assert.match(name, /^[a-zA-Z]+$/, 'the alphabet this proof rests on')
-  assert.equal(everyOrderedPairAgrees(names, 'limit name'), names.length ** 2)
+  assertEnumerated(names, 25, 'limit name')
+  assert.deepEqual(orderedPairsThatDisagree(names), [], 'these limit names would move under collation')
 })
 
 test('every ordered pair of published signature names collates exactly as it compares by code unit', () => {
   assert.equal(SIGNATURE_NAMES.length, 5)
   for (const name of SIGNATURE_NAMES) assert.match(name, /^[a-z0-9]+$/, 'the alphabet this proof rests on')
-  assert.equal(everyOrderedPairAgrees(SIGNATURE_NAMES, 'signature name'), SIGNATURE_NAMES.length ** 2)
+  assertEnumerated(SIGNATURE_NAMES, 25, 'signature name')
+  assert.deepEqual(orderedPairsThatDisagree(SIGNATURE_NAMES), [], 'these signature names would move under collation')
 })
 
 test('the comparator itself is a total order with no ties beyond equality', () => {
