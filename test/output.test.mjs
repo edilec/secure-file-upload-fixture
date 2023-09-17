@@ -77,7 +77,10 @@ test('a hard link to one of this run\'s own inputs is refused by device and inod
       assert.equal(code, 2)
       const refusals = findingsFor(report, 'output-not-written')
       assert.equal(refusals.length, 1)
-      assert.match(refusals[0].message, /same device and inode/)
+      // Refused by the guard now, before the write is attempted at all, so the
+      // message names the device and inode it compared rather than describing
+      // a collision discovered by the exclusive-create flag afterwards.
+      assert.match(refusals[0].message, /share device \d+ and inode \d+/)
       assert.deepEqual(await readFile(join(root, 'suite.json')), original, 'the input must survive byte for byte')
     })
   })

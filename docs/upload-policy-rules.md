@@ -168,7 +168,7 @@ exit code is 2 whatever the severity says.
 | `input-unreadable` | `error` | yes | an input is missing, is not a regular file, or could not be read |
 | `no-cases-evaluated` | `error` | yes | the walk evaluated nothing, so there is no evidence to be green on |
 | `no-rejection-exercised` | `warning` | no | every evaluated case was accepted, so the suite exercised no refusal |
-| `output-not-written` | `error` | yes | a destination under `--out` already existed; nothing is ever overwritten |
+| `output-not-written` | `error` | yes | a fixture destination was refused: it already existed, or it is a symbolic link, a directory, a path resolving outside `--out`, or one of this run's inputs under a second name. Nothing is ever overwritten |
 | `path-escapes-root` | `error` | yes | an input resolves outside `--root` |
 | `policy-fail-open` | `error` | yes | the policy asks for unknown types to be accepted; the run stops |
 | `policy-invalid` | `error` | yes | the policy, or one of its type entries, is malformed |

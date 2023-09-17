@@ -16,13 +16,16 @@
  * the service deploying the policy enforces it.
  */
 
-import { readFile, realpath, stat, writeFile } from 'node:fs/promises'
+import { lstat, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join, normalize, resolve, sep } from 'node:path'
 
 import { compilePolicy } from './policy.mjs'
 import { buildContent, compileSuite } from './suite.mjs'
 import { byCodeUnit, decodeUtf8, excerpt, hasForbiddenCharacter, isPlainObject } from './text.mjs'
 import { REJECTION_REASONS, decide, storedName } from './validate.mjs'
+import { DestinationError, assertWritableDestination } from './write-guard.mjs'
+
+export { DestinationError, assertWritableDestination } from './write-guard.mjs'
 
 export const TOOL_ID = 'secure-file-upload-fixture'
 export const REPORT_SCHEMA_VERSION = '1'
@@ -391,15 +394,43 @@ async function loadJson(sink, file, real, limits) {
  * Materialise one fixture, refusing every destination that is already
  * something.
  *
- * The exclusive-create flag does most of the work: an existing file is never
- * opened for writing, so no fixture can overwrite anything. When it refuses,
- * the destination is inspected and compared with this run's inputs by device
- * and inode -- because a *hard link* has no target to resolve, so a second
- * name for the suite file resolves to its own real path and compares equal to
- * nothing. A sibling tool destroyed its own input exactly that way. Device and
- * inode see through the second name; a path comparison does not.
+ * Two layers, and neither is redundant.
+ *
+ * `assertWritableDestination` runs first and answers the three holes a write
+ * destination has: a symbolic link AT the destination (refused on sight, with
+ * `lstat`, because `realpath` would resolve it and resolving is the dangerous
+ * act), a symlinked directory on the way to it that leaves `--out`, and a hard
+ * link to one of this run's own inputs, which has no target to resolve and
+ * shares no path with the input -- only device and inode see that it is the
+ * same file. Before it was here, a symlink at a fixture destination was
+ * refused by accident, by the exclusive-create flag, and reported as "already
+ * exists in the output directory": the right outcome with the wrong reason,
+ * which is a guarantee nobody can rely on.
+ *
+ * The exclusive-create flag stays, and is the layer that cannot be argued
+ * with: an existing file is never opened for writing, whatever the guard above
+ * concluded. When it refuses, the destination is compared with this run's
+ * inputs by device and inode for the same reason as above -- a hard link
+ * created between the check and the write is still not something to overwrite.
  */
-async function materialise(sink, file, target, bytes, inputs, relative) {
+async function materialise(sink, file, target, bytes, inputs, relative, realOut) {
+  try {
+    await assertWritableDestination(target, {
+      inputs: inputs.map((input) => input.path).filter((path) => typeof path === 'string'),
+      root: realOut,
+      label: `the fixture destination for "${relative}"`,
+      rootLabel: '--out',
+    })
+  } catch (error) {
+    if (!(error instanceof DestinationError)) throw error
+    sink.add({
+      file,
+      ruleId: 'output-not-written',
+      message: `Fixture "${relative}" was not written: ${error.message}`,
+      suggestion: 'Point --out at a directory holding nothing but fixtures this tool wrote. This tool never overwrites.',
+    })
+    return false
+  }
   try {
     await writeFile(target, bytes, { flag: 'wx' })
     return true
@@ -475,6 +506,27 @@ export async function runFixtureSuite(options = {}) {
   let realOut = null
   if (options.out !== undefined && options.out !== null) {
     if (typeof options.out !== 'string' || options.out.length === 0) throw new TypeError('out must be a non-empty string')
+    /*
+     * A symbolic link AT --out is refused before it is resolved, because
+     * resolving it is the dangerous act: `realpath` hands back whatever tree
+     * the link points at, and every fixture then lands there instead of in the
+     * directory the caller named. Measured before this check existed: 19
+     * fixtures written into a directory outside the tree, exit 0, status pass.
+     * Nothing was destroyed -- the exclusive-create flag below sees to that --
+     * but "nothing outside this directory is touched" was not true.
+     */
+    let entry
+    try {
+      entry = await lstat(resolve(options.out))
+    } catch (error) {
+      throw new Error(`--out could not be resolved: ${error.code ?? 'unknown error'}`)
+    }
+    if (entry.isSymbolicLink()) {
+      throw new Error(
+        '--out is a symbolic link. Following it would put every fixture wherever the link points, '
+        + 'which is not the directory you named, so it is refused. Name the real directory.',
+      )
+    }
     try {
       realOut = await realpath(options.out)
     } catch (error) {
@@ -517,7 +569,7 @@ export async function runFixtureSuite(options = {}) {
     }
     const loaded = await loadJson(sink, name, located.real, limits)
     if (loaded === null) state.incomplete = true
-    else inputs.push({ dev: loaded.dev, ino: loaded.ino })
+    else inputs.push({ dev: loaded.dev, ino: loaded.ino, path: located.real })
     documents[kind] = loaded
   }
 
@@ -701,7 +753,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
   if (realOut !== null) {
     for (const { testCase, bytes } of built) {
       const relative = `${testCase.id}${FIXTURE_EXTENSION}`
-      const written = await materialise(sink, suiteName, join(realOut, relative), bytes, inputs, relative)
+      const written = await materialise(sink, suiteName, join(realOut, relative), bytes, inputs, relative, realOut)
       if (written) state.written += 1
       else state.incomplete = true
     }

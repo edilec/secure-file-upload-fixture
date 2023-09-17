@@ -216,6 +216,18 @@ fuzz, or produce an exploit of any kind; it does not compile a regular
 expression from either input document, because a pattern from a file cannot be
 bounded from inside JavaScript; and it never overwrites a file.
 
+It also never writes anywhere but the directory you named. `--out` is refused
+outright if it is a symbolic link — `realpath` would hand back whatever tree the
+link points at, and every fixture would land there instead — and each fixture
+destination inside it is refused if it is a symbolic link, if it resolves
+outside `--out`, if it is not a regular file, or if it is one of this run's own
+inputs under a second name (compared by device and inode, because a hard link
+has no target to resolve and shares no path with the file it is a name for).
+The exclusive-create flag stays underneath all of that as the layer that cannot
+be argued with: an existing file is never opened for writing. A refused fixture
+is an `output-not-written` finding and an `incomplete` run, so the report says
+which one was not written and the exit code is never 0.
+
 Five untrusted strings are echoed on purpose, and that is the whole list: the
 **filename** and the **declared media type** of a case that was evaluated, the
 **id** of that case (which also names its `<id>.fixture` file under `--out`),

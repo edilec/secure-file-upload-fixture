@@ -4,7 +4,28 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- `--out` was resolved with `realpath`, so a symbolic link AT `--out` put every
+  fixture in whatever tree the link pointed at: measured, nineteen fixtures
+  written into a directory outside the tree the caller named, at exit 0 with
+  status `pass`, while the README promised that nothing outside that directory
+  is touched. `--out` is now refused on sight when it is a link, before it is
+  resolved, as a configuration error with an empty stdout.
+- A symbolic link at a *fixture* destination was refused, but by accident and
+  for the wrong reason: the exclusive-create flag saw it as an existing file
+  and the finding said "already exists in the output directory". Nothing was
+  destroyed, and nothing said a link was involved. Each destination now goes
+  through `assertWritableDestination` before the write, so a link, a directory,
+  a path resolving outside `--out` and a hard link to one of this run's inputs
+  are each refused deliberately and named accurately. The exclusive-create flag
+  stays underneath as the layer that cannot be argued with.
+
 ### Added
+
+- `assertWritableDestination` and `DestinationError`, exported for a caller
+  writing its own destination logic. `test/destination.test.mjs` pins one case
+  per hole and one per allowed shape.
 
 - a versioned upload policy document covering size ceilings, an extension
   allow-list, declared media types per extension, published magic signatures,
