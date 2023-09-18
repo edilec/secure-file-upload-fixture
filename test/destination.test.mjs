@@ -255,19 +255,26 @@ test('an output directory reached through a symlinked ancestor still accepts its
   // directory is itself reached through a symlink, so a guard that compares a
   // resolved destination with an unresolved root refuses every legitimate
   // destination on the machine it is running on.
+  //
+  // The link has to lie ON THE WAY to --out, not AT it: a symlink at --out is
+  // hole 1 and is refused. This test named the real directory instead, so it
+  // traversed no link at all and stayed green with the symlink deleted -- the
+  // allowed half of the guard was unpinned by the test written to pin it.
   await withRoot(suite(), async (root) => {
     await withRoot({}, async (out) => {
       const real = join(out, 'real')
-      await mkdir(real)
+      const destination = join(real, 'fixtures')
+      await mkdir(destination, { recursive: true })
       await symlink(real, join(out, 'alias'))
 
-      // --out is the link's target, named through the link's own directory:
-      // legitimate, and the fixtures land in the real directory.
-      const { code, report } = await run(root, ['--out', real])
+      // --out is named through the link: every segment before the last is
+      // resolved by the OS, and the fixtures land in the real directory.
+      const { code, report } = await run(root, ['--out', join(out, 'alias', 'fixtures')])
 
       assert.equal(code, 0)
       assert.equal(report.summary.written, 2)
-      assert.deepEqual((await readdir(real)).sort(), ['accept-png.fixture', 'reject-exe.fixture'])
+      assert.deepEqual((await readdir(destination)).sort(), ['accept-png.fixture', 'reject-exe.fixture'])
+      assert.deepEqual(await readdir(real), ['fixtures'], 'nothing landed beside the destination')
     })
   })
 })
