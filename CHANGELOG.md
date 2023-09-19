@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Stored-name expectations that collapse to different display text are now
+  refused as incomplete `case-invalid` evidence before comparison. A trailing
+  control used to raise `generated-name-mismatch` while printing identical
+  expected and produced names. Valid expectations and visible mismatches keep
+  their prior behavior.
 - `--out` was resolved with `realpath`, so a symbolic link AT `--out` put every
   fixture in whatever tree the link pointed at: measured, nineteen fixtures
   written into a directory outside the tree the caller named, at exit 0 with

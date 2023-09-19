@@ -168,6 +168,12 @@ independently and compares. A substring test — *does the stored name contain
 the uploaded one?* — fires at random against a hex digest, and a check that
 cries wolf is a check somebody switches off.
 
+An `expect.generatedName` must be a 1–120-character string that renders
+faithfully in the report. Controls, default-ignorable code points, and
+whitespace that would be collapsed or trimmed are refused at compilation as
+`case-invalid`; that case is unevaluated and the run is `incomplete`. A raw
+mismatch must never print as “expected X, produced X”.
+
 ## Limits
 
 `maxCases` (500), `maxCaseBytes` (1 MiB), `maxTotalBytes` (8 MiB),

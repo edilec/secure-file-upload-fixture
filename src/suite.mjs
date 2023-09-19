@@ -174,6 +174,12 @@ function compileExpectation(sink, file, pointer, value, label) {
     invalid(sink, file, `${pointer}/generatedName`, `Case "${label}" declares a stored name that is not a string of 1-${MAX_GENERATED_NAME} characters; it declares ${describeValue(value.generatedName)}.`)
     return null
   }
+  if (value.generatedName !== undefined
+    && (excerpt(value.generatedName, MAX_GENERATED_NAME) !== value.generatedName
+      || /\p{Default_Ignorable_Code_Point}/u.test(value.generatedName))) {
+    invalid(sink, file, `${pointer}/generatedName`, `Case "${label}" expects a stored name that cannot be rendered faithfully in the report.`)
+    return null
+  }
   return { decision: 'accept', generatedName: value.generatedName }
 }
 
