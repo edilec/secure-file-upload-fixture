@@ -23,6 +23,25 @@ test('clean generated-name expectation passes and visible mismatch remains a fai
   assert.equal(mismatch.message.includes(`produced "${original}"`), true)
 })
 
+test('a trailing-space generated name is incomplete before a same-looking mismatch can be reported', async () => {
+  const exact = await cliReport(filesWithExpected(original))
+  assert.equal(exact.code, 0)
+  assert.equal(exact.report.status, 'pass')
+  assert.equal(findingsFor(exact.report, 'generated-name-mismatch').length, 0)
+
+  const visible = await cliReport(filesWithExpected(`${original}x`))
+  assert.equal(visible.code, 1)
+  assert.equal(visible.report.status, 'fail')
+  assert.equal(findingsFor(visible.report, 'generated-name-mismatch').length, 1)
+
+  const trailing = await cliReport(filesWithExpected(`${original} `))
+  assert.equal(trailing.code, 2)
+  assert.equal(trailing.report.status, 'incomplete')
+  assert.equal(findingsFor(trailing.report, 'generated-name-mismatch').length, 0)
+  assert.equal(findingsFor(trailing.report, 'case-invalid')[0].location.pointer,
+    '/cases/0/expect/generatedName')
+})
+
 test('hidden controls in expected generated name are refused as incomplete before comparison', async () => {
   for (const character of ['\u0001', '\u0085', '\u034f']) {
     const files = filesWithExpected(`${original}${character}`)
