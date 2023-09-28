@@ -13,14 +13,15 @@ const filesWithExpected = (value) => {
 }
 const original = cleanSuite.cases[0].expect.generatedName
 
-test('clean generated-name expectation passes and visible mismatch remains a failure', async () => {
+test('clean generated-name expectation passes and mismatch remains a failure without copying either name', async () => {
   const clean = await apiReport(filesWithExpected(original))
   assert.equal(clean.status, 'pass')
   const visible = await apiReport(filesWithExpected(`${original}wrong-name.jpg`))
   assert.equal(visible.status, 'fail')
   const mismatch = findingsFor(visible, 'generated-name-mismatch')[0]
-  assert.equal(mismatch.message.includes(`${original}wrong-name.jpg`), true)
-  assert.equal(mismatch.message.includes(`produced "${original}"`), true)
+  assert.match(mismatch.message, /different stored name/)
+  assert.equal(mismatch.message.includes(`${original}wrong-name.jpg`), false)
+  assert.equal(mismatch.message.includes(`produced "${original}"`), false)
 })
 
 test('a trailing-space generated name is incomplete before a same-looking mismatch can be reported', async () => {

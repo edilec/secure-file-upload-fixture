@@ -161,18 +161,18 @@ An accepted file is stored under a name derived from the bytes
 always comes from the policy's canonical extension for the accepted type, never
 from the upload. Nothing the uploader wrote reaches the stored name — unless
 the policy sets `preserveOriginalName`, in which case every stored name it
-produces is reported under `generated-name-unsafe`.
+produces triggers `generated-name-unsafe`. The report does not copy that name.
 
 The check is exact rather than heuristic: the tool computes the safe derivation
 independently and compares. A substring test — *does the stored name contain
 the uploaded one?* — fires at random against a hex digest, and a check that
 cries wolf is a check somebody switches off.
 
-An `expect.generatedName` must be a 1–120-character string that renders
-faithfully in the report. Controls, default-ignorable code points, and
+An `expect.generatedName` must be a 1–120-character string that can be compared
+faithfully. Controls, default-ignorable code points, and
 whitespace that would be collapsed or trimmed are refused at compilation as
-`case-invalid`; that case is unevaluated and the run is `incomplete`. A raw
-mismatch must never print as “expected X, produced X”.
+`case-invalid`; that case is unevaluated and the run is `incomplete`. A mismatch
+is reported without printing either name.
 
 ## Limits
 
@@ -234,20 +234,20 @@ be argued with: an existing file is never opened for writing. A refused fixture
 is an `output-not-written` finding and an `incomplete` run, so the report says
 which one was not written and the exit code is never 0.
 
-Five untrusted strings are echoed on purpose, and that is the whole list: the
-**filename** and the **declared media type** of a case that was evaluated, the
-**id** of that case (which also names its `<id>.fixture` file under `--out`),
-an **`expect.generatedName`** that did not match, and the **name** — never the
-value — of a key the tool does not know. A finding that cannot say which case,
-which key or what stored name was expected is a finding nobody can act on.
-`docs/upload-policy-rules.md` tabulates where each one appears, and
-`test/secrets.test.mjs` measures the list by planting a canary in every
-plausible carrier in turn, so it fails if the list grows.
+The report does not copy a case's filename, declared media type, expected
+stored name, generated stored name, or accepted filename extension. It reports
+the decision, reason, byte count and case pointer; the exact values remain in
+the input suite. This also
+holds when a policy preserves a sanitised uploaded stem in the generated name.
+The **id** of an evaluated case (which also names its `<id>.fixture` file under
+`--out`) and the **name** — never the value — of an unknown key still appear.
+`docs/upload-policy-rules.md` tabulates these carriers, and
+`test/secrets.test.mjs` measures them with synthetic canaries.
 
 Every value the tool *refuses* is described (`a string of 40 character(s)`) and
 never reproduced, the JSON parser's own message included, since it quotes the
-text around the error. Do not put a secret in a fixture filename, a case id, a
-declared media type, a `generatedName`, or a key name.
+text around the error. Keep secrets out of case ids and key names, which remain
+report identifiers.
 
 ## Determinism
 

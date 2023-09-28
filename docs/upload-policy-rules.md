@@ -41,7 +41,7 @@ binary and pins the status, the summary counts and the exit code instead.
 | `onUnknown` | yes | Must be `"reject"`. `"accept"` is recognised so it can be refused by name. |
 | `filenamePolicy.style` | yes | `digest` (SHA-256 of the bytes) or `sequence` (a counter). |
 | `filenamePolicy.prefix` | yes | 1–16 characters of `[a-z0-9-]`, starting with a letter or digit. |
-| `filenamePolicy.preserveOriginalName` | yes | Stated explicitly. `true` appends the sanitised uploaded stem, and every stored name it produces is reported under `generated-name-unsafe`. |
+| `filenamePolicy.preserveOriginalName` | yes | Stated explicitly. `true` appends the sanitised uploaded stem, and every stored name it produces triggers `generated-name-unsafe` without copying the name into the report. |
 | `types[].extension` | yes | 1–8 lowercase letters or digits. This is the canonical extension a stored file is named with. |
 | `types[].mimeTypes` | yes | 1–20 lowercase `type/subtype` values, without parameters. |
 | `types[].signature` | yes | A known signature name, or `null` stated on purpose to record that this type's bytes cannot be checked. A `null` type is counted in `summary.typesWithoutSignature`, and every acceptance made under one raises `signature-unverifiable`. |
@@ -226,29 +226,27 @@ stripped of C0 (U+0000–U+001F), DEL (U+007F), C1 (U+0080–U+009F), U+2028,
 U+2029 and the bidi controls (U+200E, U+200F, U+202A–U+202E, U+2066–U+2069),
 collapsed to one line and bounded.
 
-Five carriers put a string from a file into the output, and they are the whole
-list. `test/secrets.test.mjs` measures it by planting a canary in every
-plausible carrier in turn and asserting the set that comes back, so it fails if
-the list grows and if it shrinks.
+Two kinds of carrier put a string from a file into the output. Candidate
+filenames (including extensions), declared media types, expected stored names
+and generated stored names are redacted in findings; the decision and source
+pointer are retained.
+`test/secrets.test.mjs` plants a canary in every plausible carrier and asserts
+the set that comes back, so it fails if the boundary drifts.
 
 | What | Where it appears |
 | --- | --- |
-| the **filename** of a case that was evaluated | the evidence on every finding about that case |
-| the **declared media type** of a case that was evaluated | the same evidence |
 | the **id** of a case that was evaluated | every finding about that case, and the `<id>.fixture` file written under `--out` |
-| **`expect.generatedName`** | `generated-name-mismatch`, bounded to 120 characters |
 | the **name** of a key the tool does not know | `policy-invalid`, `suite-invalid` or `case-invalid`, bounded to 40 characters — at policy, type, `filenamePolicy`, suite, case, `content` and `expect` level |
 
-Each is there because a finding that cannot say which case, which key or what
-stored name was expected is a finding nobody can act on. Everything else is
-described and never reproduced: a value the tool *refused* becomes `a string of
+Each is there because a finding that cannot say which case or which key is a
+finding nobody can act on. Everything else is described and never reproduced:
+a value the tool *refused* becomes `a string of
 40 character(s)` — including the case id in an id refusal, where the pointer
 already names the position — an unknown key's **value** is never shown even
 where its name is, a description is never shown at all, and the JSON parser's
 own message is not passed through because it quotes the text around the error.
 
-Do not put a secret in a fixture filename, in a case id, in a declared media
-type, in a `generatedName`, or in a key name.
+Do not put a secret in a case id or key name: these are report identifiers.
 
 ## What this tool does not do
 

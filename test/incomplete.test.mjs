@@ -159,7 +159,7 @@ test('an acceptance whose type has no signature is reported as never having been
   assert.equal(disclosed.length, 1)
   assert.match(disclosed[0].message, /^1 of 1 acceptance\(s\) are for a type declaring no signature/)
   assert.match(disclosed[0].message, /no byte of their content checked/)
-  assert.equal(disclosed[0].evidence, 'unverifiable type(s): txt')
+  assert.equal(disclosed[0].evidence, '1 unverifiable type(s) exercised; names redacted')
   assert.equal(disclosed[0].severity, 'info')
 })
 

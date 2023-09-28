@@ -135,9 +135,9 @@ export function isCaseId(value) {
  * report. The pointer on the finding already names the position in the file,
  * and the value is still in the file, where it started.
  *
- * A filename that was *evaluated* is a different matter and is echoed under
- * `evidence`: the decision is a decision about that filename, so a report
- * that withheld it would be unreadable. That boundary is stated in the README.
+ * An evaluated candidate's raw filename and declared media type stay in the
+ * decision path, but the report projects them as redacted evidence. Its case
+ * pointer names the source position without copying either private value.
  */
 export function describeValue(value) {
   if (value === undefined) return 'nothing'

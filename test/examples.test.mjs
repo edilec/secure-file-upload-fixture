@@ -39,7 +39,7 @@ test('the clean example passes, and exercises every rejection reason there is', 
     ['signature-unverifiable'],
   )
   assert.match(report.findings[0].message, /^1 of 4 acceptance\(s\) are for a type declaring no signature/)
-  assert.equal(report.findings[0].evidence, 'unverifiable type(s): txt')
+  assert.equal(report.findings[0].evidence, '1 unverifiable type(s) exercised; names redacted')
   assert.equal(report.summary.checked, 19)
   assert.equal(report.summary.cases, 19)
   assert.equal(report.summary.accepted, 4)

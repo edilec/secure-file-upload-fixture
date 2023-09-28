@@ -674,8 +674,10 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
     })
     state.checked += 1
     exercised.add(outcome.reason)
-    const shownName = testCase.filename === '' ? '(empty)' : `"${testCase.filename}"`
-    const evidence = `${shownName} declared ${testCase.declaredMimeType === '' ? '(no media type)' : testCase.declaredMimeType}, ${bytes.length} byte(s)`
+    // The validator sees the exact candidate; the report does not repeat it.
+    // Both fields may contain private text even when the suite and policy
+    // accept them, so sanitising or truncating them is not redaction.
+    const evidence = `filename redacted, declared media type redacted, ${bytes.length} byte(s)`
 
     if (outcome.decision === 'accept') {
       state.accepted += 1
@@ -699,7 +701,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
         pointer,
         message: outcome.decision === 'accept'
           ? `Case "${testCase.id}" expected a rejection for ${testCase.expect.reason} and the policy accepted the candidate.`
-          : `Case "${testCase.id}" expected acceptance and the policy refused the candidate: ${outcome.reason} -- ${outcome.detail}.`,
+          : `Case "${testCase.id}" expected acceptance and the policy refused the candidate: ${outcome.reason}.`,
         evidence,
         suggestion: outcome.decision === 'accept'
           ? 'Either the policy is wider than the fixture assumes, or the fixture no longer crosses the rule it was written for.'
@@ -734,7 +736,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
         ruleId: 'generated-name-unsafe',
         pointer,
         message: `The stored name for case "${testCase.id}" is unsafe: ${stored.problems.join('; ')}.`,
-        evidence: `stored ${stored.name}, derived ${stored.derived}`,
+        evidence: 'stored name redacted; byte-derived name redacted',
         suggestion: 'A stored name must be derived from the bytes or from a counter, and must end in the policy\'s canonical extension. Set filenamePolicy.preserveOriginalName to false.',
       })
     }
@@ -743,7 +745,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
         file: suiteName,
         ruleId: 'generated-name-mismatch',
         pointer,
-        message: `Case "${testCase.id}" expected the stored name "${excerpt(testCase.expect.generatedName, 120)}" and the policy produced "${stored.name}".`,
+        message: `Case "${testCase.id}" expected a different stored name from the one the policy produced.`,
         evidence,
         suggestion: 'A digest-style name changes whenever the fixture bytes change. Update the expectation, or switch the policy to sequence style.',
       })
@@ -822,7 +824,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
       ruleId: 'signature-unverifiable',
       pointer: '/cases',
       message: `${state.acceptedUnverifiable} of ${state.accepted} acceptance(s) are for a type declaring no signature, so those fixtures were accepted on their name, declared media type and size with no byte of their content checked.`,
-      evidence: `unverifiable type(s): ${[...state.acceptedUnverifiableTypes].sort(byCodeUnit).join(', ')}`,
+      evidence: `${state.acceptedUnverifiableTypes.size} unverifiable type(s) exercised; names redacted`,
       suggestion: 'A null signature is a statement that these bytes cannot be checked, not a defect. Read each of these acceptances as a decision about a name, a declared media type and a size.',
     })
   }

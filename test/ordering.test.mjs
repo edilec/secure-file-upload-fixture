@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { runFixtureSuite, validateLimits } from '../src/index.mjs'
-import { apiReport, cliReport, digestName, fixture, fixtureCase, findingsFor, policy, rejectCase, suiteOf, withRoot, withSignatureBytes } from './support.mjs'
+import { apiReport, cliReport, fixture, fixtureCase, findingsFor, policy, rejectCase, suiteOf, withRoot } from './support.mjs'
 
 /**
  * Ordering, pinned by what the tool emits.
@@ -65,8 +65,8 @@ test('the stored-name counter follows the same code-unit walk', async () => {
   // would both be right and this test would see no findings at all.
   const mismatches = findingsFor(report, 'generated-name-mismatch')
   assert.equal(mismatches.length, 2)
-  assert.match(mismatches[0].message, /Case "README" expected the stored name "upload-000002.png" and the policy produced "upload-000001.png"/)
-  assert.match(mismatches[1].message, /Case "assets" expected the stored name "upload-000001.png" and the policy produced "upload-000002.png"/)
+  assert.deepEqual(mismatches.map((finding) => finding.location.pointer), ['/cases/README', '/cases/assets'])
+  assert.match(mismatches[0].message, /expected a different stored name/)
 })
 
 test('unknown keys in a document are listed by code unit', async () => {
@@ -132,9 +132,8 @@ test('findings inside one file are ordered by pointer, by code unit', async () =
 test('two findings about one case are ordered by rule id, then by emission order', async () => {
   // These two rule ids are ordered the same way by both comparators -- that
   // site is proved equivalent in test/ordering-equivalence.test.mjs rather
-  // than pinned here. What this case does pin is that the stored name a
-  // preserve-the-stem policy produces is reported alongside the mismatch, and
-  // that the pair is emitted in one fixed order.
+  // than pinned here. The pair is emitted in one fixed order even though the
+  // stored name itself is private in the report.
   const report = await apiReport(fixture(
     policy({ filenamePolicy: { preserveOriginalName: true } }),
     [fixtureCase({ id: 'one', expect: { decision: 'accept', generatedName: 'upload-stale.png' } })],
@@ -142,7 +141,7 @@ test('two findings about one case are ordered by rule id, then by emission order
 
   const about = report.findings.filter((finding) => finding.location.pointer === '/cases/one')
   assert.deepEqual(about.map((finding) => finding.ruleId), ['generated-name-mismatch', 'generated-name-unsafe'])
-  assert.equal(about[1].evidence, `stored ${digestName(withSignatureBytes('png', 64), 'png').replace('.png', '-photo.png')}, derived ${digestName(withSignatureBytes('png', 64), 'png')}`)
+  assert.equal((about[1].evidence ?? '').includes('photo'), false)
 })
 
 test('two runs over the same inputs emit the same bytes, in the same order', async () => {

@@ -61,10 +61,10 @@ test('a forbidden character arriving through a filename is evaluated, refused an
   }
 })
 
-test('a forbidden character arriving through a declared media type is sanitised in the evidence', async () => {
+test('a forbidden character arriving through a declared media type is not echoed in evidence', async () => {
   for (const [label, character] of classes) {
     // The expectation is deliberately one this candidate cannot meet, so a
-    // finding carrying the raw declared type as evidence is always emitted --
+    // finding about the declared type is always emitted --
     // whether the validator refused the type or, for the classes that are
     // whitespace to `String.prototype.trim`, accepted the trimmed value.
     const report = await apiReport(fixture(policy(), [fixtureCase({
@@ -74,7 +74,8 @@ test('a forbidden character arriving through a declared media type is sanitised 
 
     const about = report.findings.filter((finding) => finding.location.pointer === '/cases/accept-png')
     assert.equal(about.length, 1, label)
-    assert.equal(about[0].evidence.includes('image/png'), true, label)
+    assert.equal(about[0].evidence.includes('image/png'), false, label)
+    assert.match(about[0].evidence, /redacted/, label)
     assertClean(label, JSON.stringify(report))
   }
 })
@@ -120,5 +121,6 @@ test('every string field of a finding is bounded as well as sanitised', async ()
     assert.equal(finding.location.file.length <= 200, true)
     assert.equal(finding.location.pointer.length <= 200, true)
   }
-  assert.match(findingsFor(report, 'expected-accept-but-rejected')[0].evidence, /\.\.\.$/)
+  assert.match(findingsFor(report, 'expected-accept-but-rejected')[0].evidence, /redacted/)
+  assert.equal(findingsFor(report, 'expected-accept-but-rejected')[0].evidence.includes('a'.repeat(100)), false)
 })

@@ -5,16 +5,15 @@ import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { byCodeUnit } from '../src/index.mjs'
-import { cliRun, fixture, fixtureCase, pngType, policy, suiteOf, txtType, withRoot } from './support.mjs'
+import { apiReport, cliReport, cliRun, findingsFor, fixture, fixtureCase, pngType, policy, suiteOf, txtType, withRoot } from './support.mjs'
 
 /**
- * What a refused value must never do: appear in the report.
+ * What a private value must never do: appear in the report.
  *
- * A field this tool refuses is arbitrary content from a file it did not write,
+ * A field this tool reads is arbitrary content from a file it did not write,
  * and the report goes to stdout -- a stream that is piped into CI logs, pasted
- * into issues and attached to builds. Echoing a refused value back hands that
- * content a wider audience than it had, on exactly the fields whose validation
- * exists to keep something out of the report.
+ * into issues and attached to builds. Echoing either a refused or accepted
+ * private value back hands it a wider audience than it had in the input file.
  *
  * The scan below is deliberately unlike a field-by-field assertion: it walks
  * the whole of stdout and the whole of stderr, and it looks for *every prefix*
@@ -121,33 +120,125 @@ test('a limit or option nobody defined is refused without its value', async () =
   })
 })
 
-test('the one thing that is echoed is the filename of a case that was evaluated, and the README says so', async () => {
-  // This is the boundary, stated as a test rather than left implicit: a
-  // filename the validator actually judged is reported, because the decision
-  // is a decision about that name and a report withholding it is unreadable.
-  await withRoot(fixture(policy(), [fixtureCase({
-    filename: 'quarterly-report.png',
-    expect: { decision: 'reject', reason: 'size-empty' },
-  })]), async (root) => {
-    const result = await cliRun(['--root', root, '--json'])
+test('an accepted candidate filename remains private while its mismatch finding remains actionable', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const files = fixture(policy({ allowMultipleExtensions: true }), [fixtureCase({
+    filename: `token=${marker}.pdf.png`,
+    expect: { decision: 'reject', reason: 'extension-multiple' },
+  })])
+  const api = await apiReport(files)
+  const cli = await cliReport(files)
 
-    assert.equal(result.code, 1)
-    assert.match(result.stdout, /quarterly-report\.png/)
-  })
+  for (const report of [api, cli.report]) {
+    assert.equal(report.status, 'fail')
+    assert.equal(report.summary.accepted, 1)
+    const finding = findingsFor(report, 'expected-reject-but-accepted')[0]
+    assert.equal(finding.severity, 'error')
+    assert.equal(finding.location.pointer, '/cases/accept-png')
+    assert.match(finding.evidence, /redacted/)
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 1)
+  assert.equal(cli.stdout.includes(marker), false)
+  assert.equal(cli.stderr.includes(marker), false)
+})
+
+test('an accepted declared media type stays private in both report entry points', async () => {
+  const marker = 'synthetic-secret-canary'
+  const type = `application/x-${marker}`
+  const files = fixture(policy({ types: [pngType({ mimeTypes: [type] }), txtType()] }), [fixtureCase({
+    declaredMimeType: type,
+    expect: { decision: 'reject', reason: 'size-empty' },
+  })])
+  const api = await apiReport(files)
+  const cli = await cliReport(files)
+
+  for (const report of [api, cli.report]) {
+    assert.equal(report.status, 'fail')
+    assert.equal(report.summary.accepted, 1)
+    const finding = findingsFor(report, 'expected-reject-but-accepted')[0]
+    assert.equal(finding.location.pointer, '/cases/accept-png')
+    assert.match(finding.evidence, /redacted/)
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 1)
+  assert.equal(cli.stdout.includes(marker), false)
+  assert.equal(cli.stderr.includes(marker), false)
+})
+
+test('an accepted filename extension stays private in the unverifiable-signature finding', async () => {
+  const marker = 'pvt12345'
+  const files = fixture(policy({ types: [
+    { extension: marker, mimeTypes: ['application/x-private-fixture'], signature: null },
+  ] }), [fixtureCase({
+    filename: `document.${marker}`,
+    declaredMimeType: 'application/x-private-fixture',
+  })])
+  const api = await apiReport(files)
+  const cli = await cliReport(files)
+
+  for (const report of [api, cli.report]) {
+    assert.equal(report.status, 'pass')
+    assert.equal(report.summary.accepted, 1)
+    const finding = findingsFor(report, 'signature-unverifiable')[0]
+    assert.equal(finding.location.pointer, '/cases')
+    assert.equal(finding.severity, 'info')
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 0)
+  assert.equal(cli.stdout.includes(marker), false)
+  assert.equal(cli.stderr.includes(marker), false)
+})
+
+test('an unknown extension remains private even when the policy reports why it rejected the case', async () => {
+  const marker = 'synthetic-secret-canary'
+  const files = fixture(policy(), [fixtureCase({ filename: `photo.${marker}`, expect: { decision: 'accept' } })])
+  const api = await apiReport(files)
+  const cli = await cliReport(files)
+
+  for (const report of [api, cli.report]) {
+    assert.equal(report.status, 'fail')
+    assert.equal(report.summary.rejected, 1)
+    const finding = findingsFor(report, 'expected-accept-but-rejected')[0]
+    assert.equal(finding.location.pointer, '/cases/accept-png')
+    assert.match(finding.message, /extension-unknown/)
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 1)
+  assert.equal(cli.stdout.includes(marker), false)
+  assert.equal(cli.stderr.includes(marker), false)
+})
+
+test('a preserved original stem is not published through generated-name findings', async () => {
+  const marker = 'synthetic-secret-canary'
+  const files = fixture(policy({ filenamePolicy: { preserveOriginalName: true } }), [fixtureCase({
+    filename: `${marker}.png`,
+    expect: { decision: 'accept', generatedName: `upload-${marker}.png` },
+  })])
+  const api = await apiReport(files)
+  const cli = await cliReport(files)
+
+  for (const report of [api, cli.report]) {
+    assert.equal(report.status, 'fail')
+    assert.equal(report.summary.accepted, 1)
+    assert.equal(findingsFor(report, 'generated-name-unsafe')[0].location.pointer, '/cases/accept-png')
+    assert.equal(findingsFor(report, 'generated-name-mismatch')[0].location.pointer, '/cases/accept-png')
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 1)
+  assert.equal(cli.stdout.includes(marker), false)
+  assert.equal(cli.stderr.includes(marker), false)
 })
 
 /**
  * The echo boundary, enumerated rather than recalled.
  *
- * README named two untrusted values as echoed on purpose -- the filename and
- * the declared media type of a case that was evaluated -- and advised against
- * putting a secret in a fixture filename. Three more reach output: a valid
- * case id, `expect.generatedName`, and the NAME of any key the tool does not
- * know. None is a refused value, so none was covered by the documented
- * carve-out, and the advice was incomplete about where not to put a secret.
+ * Accepted filenames, declared media types and stored names are private in
+ * the report. A valid case id and the NAME of any key the tool does not know
+ * still reach output as identifiers.
  *
- * Each of these is there for a reason. A finding that cannot say which case,
- * which key, or what stored name was expected is a finding nobody can act on.
+ * Each remaining carrier is there for a reason. A finding that cannot say
+ * which case or which key is a finding nobody can act on.
  * The risk is drift: one more field quoted into one more message and a
  * boundary everybody still believes has quietly moved. So it is measured --
  * every plausible carrier of a string gets the canary in turn, and the set
@@ -164,9 +255,6 @@ const ECHOED_ON_PURPOSE = Object.freeze([
   'an unknown key name in filenamePolicy',
   'an unknown key name in the policy',
   'an unknown key name in the suite',
-  'the declared media type of an evaluated case',
-  'the filename of an evaluated case',
-  'the generatedName an expectation declared',
   'the id of an evaluated case',
 ])
 
@@ -196,7 +284,7 @@ function echoPlantings(canary) {
   }
 }
 
-test('exactly eleven carriers put a string from a file into the output, and they are the documented eleven', async () => {
+test('exactly eight identifier and key carriers put a string from a file into output', async () => {
   const canary = CANARIES['AWS documented example key']
   const echoed = []
 

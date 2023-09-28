@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Findings now redact accepted and rejected candidate filenames and
+  extensions, declared media types, expected stored names, and generated stored
+  names. Previously
+  those values could carry private input into JSON or the human summary;
+  decision reasons, case pointers, severity and exit outcomes are unchanged.
 - Stored-name expectations that collapse to different display text are now
   refused as incomplete `case-invalid` evidence before comparison. A trailing
   control used to raise `generated-name-mismatch` while printing identical
@@ -70,10 +75,8 @@ All notable changes to this project are documented in this file.
 
 ### Documented
 
-- All five untrusted strings that reach the output are named — filename,
-  declared media type, case id, `expect.generatedName` and an unknown key's
-  name — and `test/secrets.test.mjs` measures the list rather than restating
-  it. Previously two of the five were documented.
+- The remaining identifier carriers — case id and an unknown key's name — are
+  named, and `test/secrets.test.mjs` measures the list rather than restating it.
 - `--help` and `--version` are stated to sit outside the exit-code table: both
   exit 0 with text that is not the report.
 
