@@ -151,7 +151,9 @@ test('the default input names are policy.json and suite.json, and both can be re
 
     const named = await cliRun(['--root', root, '--policy', 'upload-policy.json', '--suite', 'cases.json'])
     assert.equal(named.code, 0, named.stderr)
-    assert.match(named.stderr, /policy upload-policy.json/)
-    assert.match(named.stderr, /suite cases.json/)
+    assert.match(named.stderr, /policy @policy:/)
+    assert.match(named.stderr, /suite @suite:/)
+    assert.equal(named.stderr.includes('upload-policy.json'), false)
+    assert.equal(named.stderr.includes('cases.json'), false)
   })
 })

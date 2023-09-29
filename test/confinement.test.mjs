@@ -32,7 +32,7 @@ test('a symbolic link out of the root is refused unread, and what it pointed at 
       assert.equal(result.code, 2)
       assert.equal(report.status, 'incomplete')
       assert.deepEqual(raisedRules(report), ['path-escapes-root'])
-      assert.equal(findingsFor(report, 'path-escapes-root')[0].location.file, 'suite.json')
+      assert.equal(findingsFor(report, 'path-escapes-root')[0].location.file, '@suite')
       assert.equal(result.stdout.includes('AKIAIOSFODNN7EXAMPLE'), false)
       assert.equal(result.stderr.includes('AKIAIOSFODNN7EXAMPLE'), false)
     })

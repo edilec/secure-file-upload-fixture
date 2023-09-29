@@ -55,13 +55,13 @@ function invalid(sink, file, pointer, message, suggestion) {
 
 function compileContent(sink, file, pointer, value, limits, label) {
   if (!isPlainObject(value)) {
-    invalid(sink, file, pointer, `Case "${label}" must declare a content object; it declares ${describeValue(value)}.`)
+    invalid(sink, file, pointer, `Case ${label} must declare a content object; it declares ${describeValue(value)}.`)
     return null
   }
   if (!CONTENT_KINDS.includes(value.kind)) {
     invalid(
       sink, file, `${pointer}/kind`,
-      `Case "${label}" declares content kind ${describeValue(value.kind)}.`,
+      `Case ${label} declares content kind ${describeValue(value.kind)}.`,
       `Content is inert by construction: kind must be one of ${CONTENT_KINDS.join(', ')}. There is no way to declare arbitrary bytes.`,
     )
     return null
@@ -73,7 +73,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
   if (unknown.length > 0) {
     invalid(
       sink, file, pointer,
-      `Case "${label}" content has unknown key(s) for kind "${value.kind}": ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      `Case ${label} content has unknown key(s) for kind "${value.kind}": ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
       `Known keys for this kind are ${allowed.join(', ')}.`,
     )
     return null
@@ -81,7 +81,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
   if (value.kind === 'empty') return { kind: 'empty', bytes: 0 }
 
   if (!Number.isInteger(value.bytes) || value.bytes < 0) {
-    invalid(sink, file, `${pointer}/bytes`, `Case "${label}" must declare a non-negative integer byte count; it declares ${describeValue(value.bytes)}.`)
+    invalid(sink, file, `${pointer}/bytes`, `Case ${label} must declare a non-negative integer byte count; it declares ${describeValue(value.bytes)}.`)
     return null
   }
   if (value.bytes > limits.maxCaseBytes) {
@@ -92,7 +92,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
       file,
       ruleId: 'case-too-large',
       pointer: `${pointer}/bytes`,
-      message: `Case "${label}" declares ${value.bytes} bytes, above the maxCaseBytes limit of ${limits.maxCaseBytes}; it was not built and not evaluated.`,
+      message: `Case ${label} declares ${value.bytes} bytes, above the maxCaseBytes limit of ${limits.maxCaseBytes}; it was not built and not evaluated.`,
       suggestion: 'Raise --max-case-bytes, or lower the policy limit the fixture is testing so a smaller fixture can cross it.',
     })
     return null
@@ -100,7 +100,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
 
   if (value.kind === 'padding') {
     if (!Number.isInteger(value.byte) || value.byte < 0 || value.byte > 255) {
-      invalid(sink, file, `${pointer}/byte`, `Case "${label}" must declare the padding byte as an integer between 0 and 255; it declares ${describeValue(value.byte)}.`)
+      invalid(sink, file, `${pointer}/byte`, `Case ${label} must declare the padding byte as an integer between 0 and 255; it declares ${describeValue(value.byte)}.`)
       return null
     }
     return { kind: 'padding', byte: value.byte, bytes: value.bytes }
@@ -111,7 +111,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
       file,
       ruleId: 'case-content-unsupported',
       pointer: `${pointer}/signature`,
-      message: `Case "${label}" asks for a signature this build does not know: ${describeValue(value.signature)}.`,
+      message: `Case ${label} asks for a signature this build does not know: ${describeValue(value.signature)}.`,
       suggestion: `Known signatures are ${Object.keys(SIGNATURES).sort(byCodeUnit).join(', ')}. A signature is never guessed at.`,
     })
     return null
@@ -120,7 +120,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
   if (value.bytes < needed) {
     invalid(
       sink, file, `${pointer}/bytes`,
-      `Case "${label}" asks for a ${value.signature} signature in ${value.bytes} bytes, and the signature needs ${needed}.`,
+      `Case ${label} asks for a ${value.signature} signature in ${value.bytes} bytes, and the signature needs ${needed}.`,
       'To exercise content-signature-absent, declare a padding fixture shorter than the signature instead.',
     )
     return null
@@ -130,20 +130,20 @@ function compileContent(sink, file, pointer, value, limits, label) {
 
 function compileExpectation(sink, file, pointer, value, label) {
   if (!isPlainObject(value)) {
-    invalid(sink, file, pointer, `Case "${label}" must declare an expect object; it declares ${describeValue(value)}.`)
+    invalid(sink, file, pointer, `Case ${label} must declare an expect object; it declares ${describeValue(value)}.`)
     return null
   }
   const unknown = unknownKeys(value, EXPECT_KEYS)
   if (unknown.length > 0) {
     invalid(
       sink, file, pointer,
-      `Case "${label}" expectation has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      `Case ${label} expectation has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
       `Known keys are ${EXPECT_KEYS.join(', ')}.`,
     )
     return null
   }
   if (!DECISIONS.includes(value.decision)) {
-    invalid(sink, file, `${pointer}/decision`, `Case "${label}" must expect one of ${DECISIONS.join(', ')}; it expects ${describeValue(value.decision)}.`)
+    invalid(sink, file, `${pointer}/decision`, `Case ${label} must expect one of ${DECISIONS.join(', ')}; it expects ${describeValue(value.decision)}.`)
     return null
   }
   if (value.decision === 'reject') {
@@ -154,30 +154,30 @@ function compileExpectation(sink, file, pointer, value, label) {
     if (!REJECTION_REASONS.includes(value.reason)) {
       invalid(
         sink, file, `${pointer}/reason`,
-        `Case "${label}" expects a rejection but names ${describeValue(value.reason)} as the reason.`,
+        `Case ${label} expects a rejection but names ${describeValue(value.reason)} as the reason.`,
         `A rejection expectation must name one of: ${REJECTION_REASONS.join(', ')}.`,
       )
       return null
     }
     if (value.generatedName !== undefined) {
-      invalid(sink, file, `${pointer}/generatedName`, `Case "${label}" expects a rejection and also a stored name; a refused upload is never stored.`)
+      invalid(sink, file, `${pointer}/generatedName`, `Case ${label} expects a rejection and also a stored name; a refused upload is never stored.`)
       return null
     }
     return { decision: 'reject', reason: value.reason }
   }
   if (value.reason !== undefined) {
-    invalid(sink, file, `${pointer}/reason`, `Case "${label}" expects acceptance, which has no rejection reason.`)
+    invalid(sink, file, `${pointer}/reason`, `Case ${label} expects acceptance, which has no rejection reason.`)
     return null
   }
   if (value.generatedName !== undefined
     && (typeof value.generatedName !== 'string' || value.generatedName.length === 0 || value.generatedName.length > MAX_GENERATED_NAME)) {
-    invalid(sink, file, `${pointer}/generatedName`, `Case "${label}" declares a stored name that is not a string of 1-${MAX_GENERATED_NAME} characters; it declares ${describeValue(value.generatedName)}.`)
+    invalid(sink, file, `${pointer}/generatedName`, `Case ${label} declares a stored name that is not a string of 1-${MAX_GENERATED_NAME} characters; it declares ${describeValue(value.generatedName)}.`)
     return null
   }
   if (value.generatedName !== undefined
     && (excerpt(value.generatedName, MAX_GENERATED_NAME) !== value.generatedName
       || /\p{Default_Ignorable_Code_Point}/u.test(value.generatedName))) {
-    invalid(sink, file, `${pointer}/generatedName`, `Case "${label}" expects a stored name that cannot be rendered faithfully in the report.`)
+    invalid(sink, file, `${pointer}/generatedName`, `Case ${label} expects a stored name that cannot be compared faithfully.`)
     return null
   }
   return { decision: 'accept', generatedName: value.generatedName }
@@ -227,37 +227,35 @@ export function compileSuite(sink, file, document, limits) {
       invalid(sink, file, pointer, `Case ${index} must be an object; it is ${describeValue(entry)}.`)
       continue
     }
-    // The id is an identifier, so a control character in it is refused at the
-    // door rather than cleaned up later: a case that prints under a different
-    // name than the one it was declared, grouped and written under cannot be
-    // audited. The excerpt keeps the refusal itself from carrying the
-    // character into the report.
+    // The id remains the exact internal sort and output-file key. Findings
+    // use this array index as their source position, never the id's text.
     if (!isCaseId(entry.id)) {
       invalid(
         sink, file, `${pointer}/id`,
         `Case ${index} has an id that is not 1-64 characters of letters, digits, dot, hyphen or underscore starting with a letter or digit; it is ${describeValue(entry.id)}.`,
-        'The pointer above names the position in the file. The id itself is not reproduced: a refused value is never echoed, and the id names the case in every finding about it and names the file written under --out.',
+        'The pointer above names the position in the file. The id itself is not reproduced in findings; it still names the file written under --out.',
       )
       continue
     }
-    const label = entry.id
-    if (seen.has(label)) {
+    const id = entry.id
+    const label = index
+    if (seen.has(id)) {
       sink.add({
         file,
         ruleId: 'case-duplicate',
         pointer: `${pointer}/id`,
-        message: `Case id "${label}" is declared more than once; the later declaration was not evaluated.`,
+        message: `Case ${index} has an id already declared by an earlier case; the later declaration was not evaluated.`,
         suggestion: 'Give every case a unique id. Which duplicate won would otherwise depend on document order.',
       })
       continue
     }
-    seen.add(label)
+    seen.add(id)
 
     const unknownCaseKeys = unknownKeys(entry, CASE_KEYS)
     if (unknownCaseKeys.length > 0) {
       invalid(
         sink, file, pointer,
-        `Case "${label}" has unknown key(s): ${unknownCaseKeys.map((key) => excerpt(key, 40)).join(', ')}.`,
+        `Case ${label} has unknown key(s): ${unknownCaseKeys.map((key) => excerpt(key, 40)).join(', ')}.`,
         `Known keys are ${CASE_KEYS.join(', ')}. The value of an unknown key is never read and never reported.`,
       )
       continue
@@ -265,7 +263,7 @@ export function compileSuite(sink, file, document, limits) {
     if (typeof entry.filename !== 'string' || entry.filename.length > MAX_DECLARED_FILENAME) {
       invalid(
         sink, file, `${pointer}/filename`,
-        `Case "${label}" must declare a filename string of at most ${MAX_DECLARED_FILENAME} characters; it declares ${describeValue(entry.filename)}.`,
+        `Case ${label} must declare a filename string of at most ${MAX_DECLARED_FILENAME} characters; it declares ${describeValue(entry.filename)}.`,
         'An empty string is allowed, and exercises filename-empty.',
       )
       continue
@@ -273,13 +271,13 @@ export function compileSuite(sink, file, document, limits) {
     if (typeof entry.declaredMimeType !== 'string' || entry.declaredMimeType.length > MAX_DECLARED_MEDIA_TYPE) {
       invalid(
         sink, file, `${pointer}/declaredMimeType`,
-        `Case "${label}" must declare a media type string of at most ${MAX_DECLARED_MEDIA_TYPE} characters; it declares ${describeValue(entry.declaredMimeType)}.`,
+        `Case ${label} must declare a media type string of at most ${MAX_DECLARED_MEDIA_TYPE} characters; it declares ${describeValue(entry.declaredMimeType)}.`,
         'An empty string is allowed, and exercises mime-missing.',
       )
       continue
     }
     if (entry.description !== undefined && (typeof entry.description !== 'string' || entry.description.length > MAX_DESCRIPTION)) {
-      invalid(sink, file, `${pointer}/description`, `Case "${label}" has a description that is not a string of at most ${MAX_DESCRIPTION} characters; it is ${describeValue(entry.description)}.`)
+      invalid(sink, file, `${pointer}/description`, `Case ${label} has a description that is not a string of at most ${MAX_DESCRIPTION} characters; it is ${describeValue(entry.description)}.`)
       continue
     }
     const content = compileContent(sink, file, `${pointer}/content`, entry.content, limits, label)
@@ -287,7 +285,7 @@ export function compileSuite(sink, file, document, limits) {
     const expect = compileExpectation(sink, file, `${pointer}/expect`, entry.expect, label)
     if (expect === null) continue
 
-    cases.push({ id: label, index, filename: entry.filename, declaredMimeType: entry.declaredMimeType, content, expect })
+    cases.push({ id, index, filename: entry.filename, declaredMimeType: entry.declaredMimeType, content, expect })
   }
 
   cases.sort((left, right) => byCodeUnit(left.id, right.id))

@@ -50,7 +50,7 @@ test('an input that is not UTF-8 is reported by the decoder, not inferred from t
 
     assert.equal(report.status, 'incomplete')
     assert.equal(code, 2)
-    assert.equal(findingsFor(report, 'input-not-utf8')[0].location.file, name)
+    assert.equal(findingsFor(report, 'input-not-utf8')[0].location.file, name === 'policy.json' ? '@policy' : '@suite')
     assert.equal(report.summary.checked, 0)
   }
 })

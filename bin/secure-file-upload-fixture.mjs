@@ -57,6 +57,10 @@ Output:
           piped straight into a parser
   stderr  the human summary and diagnostics
 
+  Findings use @policy and @suite as logical source roles and /cases/N as
+  original suite positions. Supplied input paths and case ids are not copied
+  into report streams; --out still names files <case-id>.fixture.
+
   --help and --version are not runs: they answer about the tool, print on
   stdout and exit 0 without reading either input, so a script that parses
   stdout should not pass them.
@@ -172,10 +176,7 @@ async function main(argv) {
 
   process.stdout.write(`${serializeReport(report)}\n`)
   if (!options.json) {
-    process.stderr.write(formatReport(report, {
-      policy: options.policy ?? DEFAULT_POLICY_NAME,
-      suite: options.suite ?? DEFAULT_SUITE_NAME,
-    }))
+    process.stderr.write(formatReport(report))
   }
   if (report.status === 'incomplete') {
     process.stderr.write(

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile, readdir, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { byCodeUnit } from '../src/index.mjs'
@@ -127,14 +127,15 @@ test('an accepted candidate filename remains private while its mismatch finding 
     expect: { decision: 'reject', reason: 'extension-multiple' },
   })])
   const api = await apiReport(files)
-  const cli = await cliReport(files)
+  const cli = await withRoot(files, (root) => cliRun(['--root', root]))
+  const cliReportValue = JSON.parse(cli.stdout)
 
-  for (const report of [api, cli.report]) {
+  for (const report of [api, cliReportValue]) {
     assert.equal(report.status, 'fail')
     assert.equal(report.summary.accepted, 1)
     const finding = findingsFor(report, 'expected-reject-but-accepted')[0]
     assert.equal(finding.severity, 'error')
-    assert.equal(finding.location.pointer, '/cases/accept-png')
+    assert.equal(finding.location.pointer, '/cases/0')
     assert.match(finding.evidence, /redacted/)
     assert.equal(JSON.stringify(report).includes(marker), false)
   }
@@ -157,7 +158,7 @@ test('an accepted declared media type stays private in both report entry points'
     assert.equal(report.status, 'fail')
     assert.equal(report.summary.accepted, 1)
     const finding = findingsFor(report, 'expected-reject-but-accepted')[0]
-    assert.equal(finding.location.pointer, '/cases/accept-png')
+    assert.equal(finding.location.pointer, '/cases/0')
     assert.match(finding.evidence, /redacted/)
     assert.equal(JSON.stringify(report).includes(marker), false)
   }
@@ -200,7 +201,7 @@ test('an unknown extension remains private even when the policy reports why it r
     assert.equal(report.status, 'fail')
     assert.equal(report.summary.rejected, 1)
     const finding = findingsFor(report, 'expected-accept-but-rejected')[0]
-    assert.equal(finding.location.pointer, '/cases/accept-png')
+    assert.equal(finding.location.pointer, '/cases/0')
     assert.match(finding.message, /extension-unknown/)
     assert.equal(JSON.stringify(report).includes(marker), false)
   }
@@ -221,8 +222,8 @@ test('a preserved original stem is not published through generated-name findings
   for (const report of [api, cli.report]) {
     assert.equal(report.status, 'fail')
     assert.equal(report.summary.accepted, 1)
-    assert.equal(findingsFor(report, 'generated-name-unsafe')[0].location.pointer, '/cases/accept-png')
-    assert.equal(findingsFor(report, 'generated-name-mismatch')[0].location.pointer, '/cases/accept-png')
+    assert.equal(findingsFor(report, 'generated-name-unsafe')[0].location.pointer, '/cases/0')
+    assert.equal(findingsFor(report, 'generated-name-mismatch')[0].location.pointer, '/cases/0')
     assert.equal(JSON.stringify(report).includes(marker), false)
   }
   assert.equal(cli.code, 1)
@@ -230,15 +231,130 @@ test('a preserved original stem is not published through generated-name findings
   assert.equal(cli.stderr.includes(marker), false)
 })
 
+test('a valid private-shaped case id is located by source ordinal without appearing in report streams', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const files = fixture(policy(), [fixtureCase({
+    id: marker,
+    expect: { decision: 'reject', reason: 'size-empty' },
+  })])
+  const api = await apiReport(files)
+  const cli = await withRoot(files, (root) => cliRun(['--root', root]))
+  const cliReportValue = JSON.parse(cli.stdout)
+
+  for (const report of [api, cliReportValue]) {
+    assert.equal(report.status, 'fail')
+    const finding = findingsFor(report, 'expected-reject-but-accepted')[0]
+    assert.equal(finding.location.pointer, '/cases/0')
+    assert.equal(finding.severity, 'error')
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 1)
+  assert.equal(cli.stdout.includes(marker), false)
+  assert.equal(cli.stderr.includes(marker), false)
+})
+
+test('a private-shaped case id is not echoed by compilation or output-not-written diagnostics', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const malformed = await apiReport(fixture(policy(), [fixtureCase({ id: marker, filename: 7 })]))
+  assert.equal(malformed.status, 'incomplete')
+  assert.equal(findingsFor(malformed, 'case-invalid')[0].location.pointer, '/cases/0/filename')
+  assert.equal(JSON.stringify(malformed).includes(marker), false)
+
+  await withRoot(fixture(policy(), [fixtureCase({ id: marker })]), async (root) => {
+    await withRoot({}, async (out) => {
+      await writeFile(join(out, `${marker}.fixture`), 'pre-existing synthetic fixture')
+      const run = await cliRun(['--root', root, '--out', out])
+      const report = JSON.parse(run.stdout)
+
+      assert.equal(run.code, 2)
+      assert.equal(report.status, 'incomplete')
+      assert.equal(findingsFor(report, 'output-not-written')[0].location.pointer, '/cases/0')
+      assert.equal((run.stdout + run.stderr).includes(marker), false)
+    })
+    await withRoot({}, async (out) => {
+      await symlink('missing-synthetic-target', join(out, `${marker}.fixture`))
+      const run = await cliRun(['--root', root, '--out', out])
+      const report = JSON.parse(run.stdout)
+
+      assert.equal(run.code, 2)
+      assert.equal(report.status, 'incomplete')
+      assert.equal(findingsFor(report, 'output-not-written')[0].location.pointer, '/cases/0')
+      assert.match(findingsFor(report, 'output-not-written')[0].message, /symbolic link/)
+      assert.equal((run.stdout + run.stderr).includes(marker), false)
+    })
+  })
+})
+
+test('valid private-shaped ids stay out of duplicate, content, expectation and generated-name findings', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const scenarios = [
+    ['case-duplicate', fixture(policy(), [fixtureCase({ id: marker }), fixtureCase({ id: marker })]), '/cases/1/id'],
+    ['case-invalid', fixture(policy(), [fixtureCase({ id: marker, content: 'not-an-object' })]), '/cases/0/content'],
+    ['case-invalid', fixture(policy(), [fixtureCase({ id: marker, expect: { decision: 'reject', reason: 'not-a-reason' } })]), '/cases/0/expect/reason'],
+    ['reason-mismatch', fixture(policy(), [fixtureCase({ id: marker, filename: 'setup.exe', expect: { decision: 'reject', reason: 'size-empty' } })]), '/cases/0'],
+    ['generated-name-unsafe', fixture(policy({ filenamePolicy: { preserveOriginalName: true } }), [fixtureCase({ id: marker })]), '/cases/0'],
+    ['generated-name-mismatch', fixture(policy(), [fixtureCase({ id: marker, expect: { decision: 'accept', generatedName: 'upload-wrong.png' } })]), '/cases/0'],
+  ]
+
+  for (const [ruleId, files, pointer] of scenarios) {
+    const report = await apiReport(files)
+    assert.equal(findingsFor(report, ruleId)[0].location.pointer, pointer, ruleId)
+    assert.equal(JSON.stringify(report).includes(marker), false, ruleId)
+  }
+})
+
+test('custom private-shaped input basenames are read but represented by fixed source roles', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const policyName = `${marker}-policy.json`
+  const suiteName = `${marker}-suite.json`
+  const files = {
+    [policyName]: policy({ types: [] }),
+    [suiteName]: suiteOf([fixtureCase()]),
+  }
+  const api = await apiReport(files, { policy: policyName, suite: suiteName })
+
+  await withRoot(files, async (root) => {
+    const run = await cliRun(['--root', root, '--policy', policyName, '--suite', suiteName])
+    const report = JSON.parse(run.stdout)
+
+    assert.equal(run.code, 1)
+    assert.equal(report.status, 'fail')
+    assert.deepEqual([api, report].map((value) => findingsFor(value, 'policy-no-types')[0].location), [
+      { file: '@policy', pointer: '/types' },
+      { file: '@policy', pointer: '/types' },
+    ])
+    assert.equal(findingsFor(report, 'expected-accept-but-rejected')[0].location.file, '@suite')
+    assert.equal(findingsFor(report, 'expected-accept-but-rejected')[0].location.pointer, '/cases/0')
+    assert.equal((run.stdout + run.stderr + JSON.stringify(api)).includes(marker), false)
+    assert.match(run.stderr, /policy @policy:/)
+    assert.match(run.stderr, /suite @suite:/)
+  })
+})
+
+test('a missing private-shaped input basename is not echoed by its unreadable finding', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const missingSuite = `${marker}-missing.json`
+
+  await withRoot({ 'policy.json': policy() }, async (root) => {
+    const run = await cliRun(['--root', root, '--suite', missingSuite])
+    const report = JSON.parse(run.stdout)
+
+    assert.equal(run.code, 2)
+    assert.equal(report.status, 'incomplete')
+    assert.equal(findingsFor(report, 'input-unreadable')[0].location.file, '@suite')
+    assert.equal((run.stdout + run.stderr).includes(marker), false)
+  })
+})
+
 /**
  * The echo boundary, enumerated rather than recalled.
  *
- * Accepted filenames, declared media types and stored names are private in
- * the report. A valid case id and the NAME of any key the tool does not know
- * still reach output as identifiers.
+ * Accepted filenames, declared media types, stored names and case ids are
+ * private in the report. The NAME of an unknown key still reaches a finding;
+ * a valid case id still names a materialised output file under --out.
  *
- * Each remaining carrier is there for a reason. A finding that cannot say
- * which case or which key is a finding nobody can act on.
+ * The remaining report carrier is there for a reason: a finding needs to say
+ * which unknown key to fix, while source ordinals say which case to inspect.
  * The risk is drift: one more field quoted into one more message and a
  * boundary everybody still believes has quietly moved. So it is measured --
  * every plausible carrier of a string gets the canary in turn, and the set
@@ -247,7 +363,7 @@ test('a preserved original stem is not published through generated-name findings
  * being guarded against.
  */
 
-const ECHOED_ON_PURPOSE = Object.freeze([
+const ECHOED_REPORT_KEYS = Object.freeze([
   'an unknown key name in a case',
   'an unknown key name in a policy type',
   'an unknown key name in content',
@@ -255,8 +371,8 @@ const ECHOED_ON_PURPOSE = Object.freeze([
   'an unknown key name in filenamePolicy',
   'an unknown key name in the policy',
   'an unknown key name in the suite',
-  'the id of an evaluated case',
 ])
+const ECHOED_OUTPUT_FILENAMES = Object.freeze(['the id of an evaluated case'])
 
 const MISMATCH = Object.freeze({ decision: 'reject', reason: 'size-empty' })
 
@@ -284,9 +400,10 @@ function echoPlantings(canary) {
   }
 }
 
-test('exactly eight identifier and key carriers put a string from a file into output', async () => {
+test('only unknown key names reach reports; case ids still name output files', async () => {
   const canary = CANARIES['AWS documented example key']
-  const echoed = []
+  const reported = []
+  const writtenNames = []
 
   for (const [where, files] of Object.entries(echoPlantings(canary))) {
     await withRoot(files, async (root) => {
@@ -296,10 +413,12 @@ test('exactly eight identifier and key carriers put a string from a file into ou
         for (const name of await readdir(out)) {
           written += `${name}\n${await readFile(join(out, name), 'latin1')}`
         }
-        if ([result.stdout, result.stderr, written].some((text) => text.includes(canary))) echoed.push(where)
+        if ([result.stdout, result.stderr].some((text) => text.includes(canary))) reported.push(where)
+        if (written.includes(canary)) writtenNames.push(where)
       })
     })
   }
 
-  assert.deepEqual(echoed.sort(byCodeUnit), [...ECHOED_ON_PURPOSE], 'the set of strings this tool echoes has changed')
+  assert.deepEqual(reported.sort(byCodeUnit), [...ECHOED_REPORT_KEYS], 'the report string carriers changed')
+  assert.deepEqual(writtenNames.sort(byCodeUnit), [...ECHOED_OUTPUT_FILENAMES], 'the output filename carrier changed')
 })

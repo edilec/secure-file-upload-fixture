@@ -220,33 +220,35 @@ case before the cases are ordered by code unit and cut.
 
 ## Sanitising
 
-Every untrusted string on its way into output — case ids, filenames, media
-types, document keys, pointers, messages, suggestions and evidence — is
-stripped of C0 (U+0000–U+001F), DEL (U+007F), C1 (U+0080–U+009F), U+2028,
-U+2029 and the bidi controls (U+200E, U+200F, U+202A–U+202E, U+2066–U+2069),
-collapsed to one line and bounded.
+Every untrusted string that remains in report output — chiefly an unknown
+key's name — is stripped of C0 (U+0000–U+001F), DEL (U+007F), C1
+(U+0080–U+009F), U+2028, U+2029 and the bidi controls (U+200E, U+200F,
+U+202A–U+202E, U+2066–U+2069), collapsed to one line and bounded.
 
-Two kinds of carrier put a string from a file into the output. Candidate
-filenames (including extensions), declared media types, expected stored names
-and generated stored names are redacted in findings; the decision and source
-pointer are retained.
+The report keeps candidate filenames (including extensions), declared media
+types, expected and generated stored names, and case ids private. Findings use
+an original array index such as `/cases/0` even though evaluation is sorted
+by id. `location.file` is the fixed logical role `@policy` or `@suite`, not
+the literal relative input filename. The CLI and API still read the exact
+supplied path; use the role and pointer with those inputs to locate the source.
 `test/secrets.test.mjs` plants a canary in every plausible carrier and asserts
 the set that comes back, so it fails if the boundary drifts.
 
 | What | Where it appears |
 | --- | --- |
-| the **id** of a case that was evaluated | every finding about that case, and the `<id>.fixture` file written under `--out` |
 | the **name** of a key the tool does not know | `policy-invalid`, `suite-invalid` or `case-invalid`, bounded to 40 characters — at policy, type, `filenamePolicy`, suite, case, `content` and `expect` level |
 
-Each is there because a finding that cannot say which case or which key is a
-finding nobody can act on. Everything else is described and never reproduced:
-a value the tool *refused* becomes `a string of
-40 character(s)` — including the case id in an id refusal, where the pointer
+The key name remains because a finding that cannot say which key is a finding
+nobody can act on. Everything else is described and never reproduced:
+a value the tool *refused* becomes `a string of 40 character(s)` — including
+the case id in an id refusal, where the pointer
 already names the position — an unknown key's **value** is never shown even
 where its name is, a description is never shown at all, and the JSON parser's
 own message is not passed through because it quotes the text around the error.
 
-Do not put a secret in a case id or key name: these are report identifiers.
+Do not put a secret in a key name: it is a report identifier. If using `--out`,
+also keep secrets out of case ids, which become output filenames even though
+they do not appear in report streams.
 
 ## What this tool does not do
 

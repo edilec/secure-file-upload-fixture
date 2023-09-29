@@ -32,6 +32,8 @@ export const REPORT_SCHEMA_VERSION = '1'
 
 export const DEFAULT_POLICY_NAME = 'policy.json'
 export const DEFAULT_SUITE_NAME = 'suite.json'
+const POLICY_REPORT_SOURCE = '@policy'
+const SUITE_REPORT_SOURCE = '@suite'
 
 /**
  * Limits, each enforced and each reported by name when it is hit.
@@ -413,12 +415,12 @@ async function loadJson(sink, file, real, limits) {
  * inputs by device and inode for the same reason as above -- a hard link
  * created between the check and the write is still not something to overwrite.
  */
-async function materialise(sink, file, target, bytes, inputs, relative, realOut) {
+async function materialise(sink, file, pointer, target, bytes, inputs, reportLabel, realOut) {
   try {
     await assertWritableDestination(target, {
       inputs: inputs.map((input) => input.path).filter((path) => typeof path === 'string'),
       root: realOut,
-      label: `the fixture destination for "${relative}"`,
+      label: `the fixture destination for ${reportLabel}`,
       rootLabel: '--out',
     })
   } catch (error) {
@@ -426,7 +428,8 @@ async function materialise(sink, file, target, bytes, inputs, relative, realOut)
     sink.add({
       file,
       ruleId: 'output-not-written',
-      message: `Fixture "${relative}" was not written: ${error.message}`,
+      pointer,
+      message: `Fixture for ${reportLabel} was not written: ${error.message}`,
       suggestion: 'Point --out at a directory holding nothing but fixtures this tool wrote. This tool never overwrites.',
     })
     return false
@@ -439,7 +442,8 @@ async function materialise(sink, file, target, bytes, inputs, relative, realOut)
       sink.add({
         file,
         ruleId: 'output-not-written',
-        message: `Fixture "${relative}" could not be written: ${error.code ?? 'unknown error'}.`,
+        pointer,
+        message: `Fixture for ${reportLabel} could not be written: ${error.code ?? 'unknown error'}.`,
         suggestion: 'Check that --out names a writable directory.',
       })
       return false
@@ -454,9 +458,10 @@ async function materialise(sink, file, target, bytes, inputs, relative, realOut)
     sink.add({
       file,
       ruleId: 'output-not-written',
+      pointer,
       message: collision
-        ? `Fixture "${relative}" would have been written over one of this run's own inputs -- the same device and inode, reached under a second name -- so nothing was written.`
-        : `Fixture "${relative}" already exists in the output directory, so nothing was written and nothing was overwritten.`,
+        ? `Fixture for ${reportLabel} would have been written over one of this run's own inputs -- the same device and inode, reached under a second name -- so nothing was written.`
+        : `Fixture for ${reportLabel} already exists in the output directory, so nothing was written and nothing was overwritten.`,
       suggestion: 'Empty the output directory, or point --out somewhere new. This tool never overwrites.',
     })
     return false
@@ -541,33 +546,34 @@ export async function runFixtureSuite(options = {}) {
     checked: 0, accepted: 0, rejected: 0, bytesGenerated: 0, written: 0, incomplete: false,
     acceptedUnverifiable: 0, acceptedUnverifiableTypes: new Set(),
   }
-  const counts = { declaredCases: 0, compiledTypes: 0, unverifiableTypes: [], suiteName, policyName }
+  const counts = { declaredCases: 0, compiledTypes: 0, unverifiableTypes: [], suiteName: SUITE_REPORT_SOURCE }
 
   const documents = {}
   const inputs = []
   for (const [kind, name] of [['policy', policyName], ['suite', suiteName]]) {
+    const reportFile = kind === 'policy' ? POLICY_REPORT_SOURCE : SUITE_REPORT_SOURCE
     const located = await resolveInput(realRoot, name)
     if (!located.ok) {
       state.incomplete = true
       if (located.reason === 'escapes') {
         sink.add({
-          file: name,
+          file: reportFile,
           ruleId: 'path-escapes-root',
-          message: `${name} resolves outside --root, so it was refused unread.`,
+          message: `${reportFile} resolves outside --root, so it was refused unread.`,
           suggestion: 'Keep both inputs inside the declared root; a symbolic link out of the tree is refused.',
         })
       } else {
         sink.add({
-          file: name,
+          file: reportFile,
           ruleId: 'input-unreadable',
-          message: `${name} could not be resolved inside --root: ${located.code ?? 'unknown error'}.`,
+          message: `${reportFile} could not be resolved inside --root: ${located.code ?? 'unknown error'}.`,
           suggestion: 'Check the file name and its permissions.',
         })
       }
       documents[kind] = null
       continue
     }
-    const loaded = await loadJson(sink, name, located.real, limits)
+    const loaded = await loadJson(sink, reportFile, located.real, limits)
     if (loaded === null) state.incomplete = true
     else inputs.push({ dev: loaded.dev, ino: loaded.ino, path: located.real })
     documents[kind] = loaded
@@ -575,7 +581,7 @@ export async function runFixtureSuite(options = {}) {
 
   let policy = null
   if (documents.policy !== null) {
-    policy = compilePolicy(sink, policyName, documents.policy.value)
+    policy = compilePolicy(sink, POLICY_REPORT_SOURCE, documents.policy.value)
     if (policy === null) state.incomplete = true
     else {
       counts.compiledTypes = policy.compiledTypes
@@ -584,7 +590,7 @@ export async function runFixtureSuite(options = {}) {
       if (policy.compiledTypes !== policy.declaredTypes) state.incomplete = true
       if (policy.types.size === 0) {
         sink.add({
-          file: policyName,
+          file: POLICY_REPORT_SOURCE,
           ruleId: 'policy-no-types',
           pointer: '/types',
           message: 'The policy declares no usable type, so every candidate is refused for an unknown extension and the suite proves nothing about what may be uploaded.',
@@ -596,7 +602,7 @@ export async function runFixtureSuite(options = {}) {
 
   let suite = null
   if (documents.suite !== null) {
-    suite = compileSuite(sink, suiteName, documents.suite.value, limits)
+    suite = compileSuite(sink, SUITE_REPORT_SOURCE, documents.suite.value, limits)
     if (suite === null) state.incomplete = true
     else {
       counts.declaredCases = suite.declared
@@ -605,7 +611,7 @@ export async function runFixtureSuite(options = {}) {
   }
 
   if (policy !== null && suite !== null) {
-    await evaluate({ sink, state, limits, policy, suite, suiteName, realOut, inputs })
+    await evaluate({ sink, state, limits, policy, suite, suiteName: SUITE_REPORT_SOURCE, realOut, inputs })
   }
 
   return buildReport(sink, state, counts, limits)
@@ -666,7 +672,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
   let sequence = 0
 
   for (const { testCase, bytes } of built) {
-    const pointer = `/cases/${testCase.id}`
+    const pointer = `/cases/${testCase.index}`
     const outcome = decide(policy, {
       filename: testCase.filename,
       declaredMimeType: testCase.declaredMimeType,
@@ -700,8 +706,8 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
         ruleId: outcome.decision === 'accept' ? 'expected-reject-but-accepted' : 'expected-accept-but-rejected',
         pointer,
         message: outcome.decision === 'accept'
-          ? `Case "${testCase.id}" expected a rejection for ${testCase.expect.reason} and the policy accepted the candidate.`
-          : `Case "${testCase.id}" expected acceptance and the policy refused the candidate: ${outcome.reason}.`,
+          ? `Case ${testCase.index} expected a rejection for ${testCase.expect.reason} and the policy accepted the candidate.`
+          : `Case ${testCase.index} expected acceptance and the policy refused the candidate: ${outcome.reason}.`,
         evidence,
         suggestion: outcome.decision === 'accept'
           ? 'Either the policy is wider than the fixture assumes, or the fixture no longer crosses the rule it was written for.'
@@ -716,7 +722,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
           file: suiteName,
           ruleId: 'reason-mismatch',
           pointer,
-          message: `Case "${testCase.id}" was refused for ${outcome.reason} and expected ${testCase.expect.reason}. Both are rejections, and the fixture is no longer exercising the rule it names.`,
+          message: `Case ${testCase.index} was refused for ${outcome.reason} and expected ${testCase.expect.reason}. Both are rejections, and the fixture is no longer exercising the rule it names.`,
           evidence,
           suggestion: 'Checks run in a fixed order, so a fixture that trips two rules is reported under the first. Narrow the fixture until it trips only the rule it is for.',
         })
@@ -735,7 +741,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
         file: suiteName,
         ruleId: 'generated-name-unsafe',
         pointer,
-        message: `The stored name for case "${testCase.id}" is unsafe: ${stored.problems.join('; ')}.`,
+        message: `The stored name for case ${testCase.index} is unsafe: ${stored.problems.join('; ')}.`,
         evidence: 'stored name redacted; byte-derived name redacted',
         suggestion: 'A stored name must be derived from the bytes or from a counter, and must end in the policy\'s canonical extension. Set filenamePolicy.preserveOriginalName to false.',
       })
@@ -745,7 +751,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
         file: suiteName,
         ruleId: 'generated-name-mismatch',
         pointer,
-        message: `Case "${testCase.id}" expected a different stored name from the one the policy produced.`,
+        message: `Case ${testCase.index} expected a different stored name from the one the policy produced.`,
         evidence,
         suggestion: 'A digest-style name changes whenever the fixture bytes change. Update the expectation, or switch the policy to sequence style.',
       })
@@ -755,7 +761,7 @@ async function evaluate({ sink, state, limits, policy, suite, suiteName, realOut
   if (realOut !== null) {
     for (const { testCase, bytes } of built) {
       const relative = `${testCase.id}${FIXTURE_EXTENSION}`
-      const written = await materialise(sink, suiteName, join(realOut, relative), bytes, inputs, relative, realOut)
+      const written = await materialise(sink, suiteName, `/cases/${testCase.index}`, join(realOut, relative), bytes, inputs, `case ${testCase.index}`, realOut)
       if (written) state.written += 1
       else state.incomplete = true
     }
@@ -856,11 +862,11 @@ export function exitCodeFor(report) {
 const SEVERITY_WIDTH = 7
 
 /** The human summary. It goes to stderr; stdout is the JSON report alone. */
-export function formatReport(report, extra = {}) {
+export function formatReport(report) {
   const { summary } = report
   const lines = [
-    `policy ${excerpt(extra.policy ?? DEFAULT_POLICY_NAME, 80)}: ${summary.types} type(s) compiled.`,
-    `suite ${excerpt(extra.suite ?? DEFAULT_SUITE_NAME, 80)}: ${summary.checked} of ${summary.cases} case(s) evaluated, ${summary.unevaluated} not evaluated, ${summary.bytesGenerated} inert byte(s) built.`,
+    `policy ${POLICY_REPORT_SOURCE}: ${summary.types} type(s) compiled.`,
+    `suite ${SUITE_REPORT_SOURCE}: ${summary.checked} of ${summary.cases} case(s) evaluated, ${summary.unevaluated} not evaluated, ${summary.bytesGenerated} inert byte(s) built.`,
     `outcomes: ${summary.accepted} accepted, ${summary.rejected} rejected, ${summary.written} fixture(s) written. status ${report.status}.`,
   ]
   for (const finding of report.findings) {

@@ -108,10 +108,11 @@ export function excerpt(value, limit = EXCERPT_LIMIT) {
 }
 
 /**
- * A case id is this tool's vocabulary: it names a fixture, it appears in the
- * JSON Pointer of every finding about that fixture, and -- when `--out` is
- * given -- it names the file written to disk. The alphabet is deliberately
- * narrow, and it is a refusal rather than a cleanup, because a value that is
+ * A case id is this tool's internal vocabulary: it orders a fixture and,
+ * when `--out` is given, names the file written to disk. Findings use the
+ * original array index as their JSON Pointer instead of copying the id. The
+ * alphabet is deliberately narrow, and it is a refusal rather than a cleanup,
+ * because a value that is
  * silently rewritten between "what the suite asked for" and "what was written"
  * cannot be audited by the person reading either one.
  */

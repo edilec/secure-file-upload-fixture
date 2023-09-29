@@ -72,7 +72,7 @@ test('a forbidden character arriving through a declared media type is not echoed
       expect: { decision: 'reject', reason: 'size-empty' },
     })]))
 
-    const about = report.findings.filter((finding) => finding.location.pointer === '/cases/accept-png')
+    const about = report.findings.filter((finding) => finding.location.pointer === '/cases/0')
     assert.equal(about.length, 1, label)
     assert.equal(about[0].evidence.includes('image/png'), false, label)
     assert.match(about[0].evidence, /redacted/, label)

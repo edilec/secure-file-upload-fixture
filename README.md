@@ -42,8 +42,8 @@ answer on stdout and exit 0 without reading either input. A script that parses
 stdout should not pass them.
 
 ```
-policy policy.json: 4 type(s) compiled.
-suite suite.json: 19 of 19 case(s) evaluated, 0 not evaluated, 6676 inert byte(s) built.
+policy @policy: 4 type(s) compiled.
+suite @suite: 19 of 19 case(s) evaluated, 0 not evaluated, 6676 inert byte(s) built.
 outcomes: 4 accepted, 15 rejected, 0 fixture(s) written. status pass.
 ```
 
@@ -237,17 +237,23 @@ which one was not written and the exit code is never 0.
 The report does not copy a case's filename, declared media type, expected
 stored name, generated stored name, or accepted filename extension. It reports
 the decision, reason, byte count and case pointer; the exact values remain in
-the input suite. This also
-holds when a policy preserves a sanitised uploaded stem in the generated name.
-The **id** of an evaluated case (which also names its `<id>.fixture` file under
-`--out`) and the **name** — never the value — of an unknown key still appear.
-`docs/upload-policy-rules.md` tabulates these carriers, and
-`test/secrets.test.mjs` measures them with synthetic canaries.
+the input suite. This also holds when a policy preserves a sanitised uploaded
+stem in the generated name. Case ids are likewise kept out of findings:
+`/cases/0` points to the first case in the suite as written, even though cases
+are evaluated in id order. The raw id still names `<id>.fixture` under `--out`.
+
+`location.file` uses the fixed logical source roles `@policy` and `@suite`,
+not the literal `--policy` or `--suite` path. The CLI and API still read the
+exact path supplied. Use the role and pointer with the original input files to
+find an observation. The **name** — never the value — of an unknown key is the
+remaining untrusted report identifier. `docs/upload-policy-rules.md` tabulates
+these carriers, and `test/secrets.test.mjs` measures them with synthetic canaries.
 
 Every value the tool *refuses* is described (`a string of 40 character(s)`) and
 never reproduced, the JSON parser's own message included, since it quotes the
-text around the error. Keep secrets out of case ids and key names, which remain
-report identifiers.
+text around the error. Keep secrets out of key names, which remain report
+identifiers. If you use `--out`, keep secrets out of case ids too because they
+become output filenames.
 
 ## Determinism
 

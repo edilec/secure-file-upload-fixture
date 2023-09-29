@@ -8,9 +8,12 @@ All notable changes to this project are documented in this file.
 
 - Findings now redact accepted and rejected candidate filenames and
   extensions, declared media types, expected stored names, and generated stored
-  names. Previously
-  those values could carry private input into JSON or the human summary;
-  decision reasons, case pointers, severity and exit outcomes are unchanged.
+  names. Previously those values could carry private input into JSON or the
+  human summary; decision reasons, severity and exit outcomes are unchanged.
+- Findings now use source ordinals for case pointers and fixed `@policy` /
+  `@suite` logical source roles. Previously a valid private-shaped case id or
+  custom input basename could leak into JSON or stderr. Raw ids still control
+  evaluation order and `--out` filenames; raw input paths still control reads.
 - Stored-name expectations that collapse to different display text are now
   refused as incomplete `case-invalid` evidence before comparison. A trailing
   control used to raise `generated-name-mismatch` while printing identical
@@ -75,8 +78,8 @@ All notable changes to this project are documented in this file.
 
 ### Documented
 
-- The remaining identifier carriers — case id and an unknown key's name — are
-  named, and `test/secrets.test.mjs` measures the list rather than restating it.
+- The remaining report identifier carrier — an unknown key's name — is named,
+  and `test/secrets.test.mjs` measures it rather than restating the list.
 - `--help` and `--version` are stated to sit outside the exit-code table: both
   exit 0 with text that is not the report.
 

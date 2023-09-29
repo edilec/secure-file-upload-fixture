@@ -65,7 +65,7 @@ test('the stored-name counter follows the same code-unit walk', async () => {
   // would both be right and this test would see no findings at all.
   const mismatches = findingsFor(report, 'generated-name-mismatch')
   assert.equal(mismatches.length, 2)
-  assert.deepEqual(mismatches.map((finding) => finding.location.pointer), ['/cases/README', '/cases/assets'])
+  assert.deepEqual(mismatches.map((finding) => finding.location.pointer), ['/cases/0', '/cases/1'])
   assert.match(mismatches[0].message, /expected a different stored name/)
 })
 
@@ -98,21 +98,17 @@ test('the first unknown option name reported is the first by code unit', async (
   })
 })
 
-test('findings are grouped by file in code-unit order', async () => {
-  disagrees('Zebra.json', 'apple.json')
-
+test('findings are grouped by fixed input source role', async () => {
   const report = await apiReport({
     'Zebra.json': policy({ types: [] }),
     'apple.json': suiteOf([fixtureCase({ id: 'only', expect: { decision: 'accept' } })]),
   }, { policy: 'Zebra.json', suite: 'apple.json' })
 
-  assert.deepEqual(report.findings.map((finding) => finding.location.file), ['Zebra.json', 'apple.json', 'apple.json'])
+  assert.deepEqual(report.findings.map((finding) => finding.location.file), ['@policy', '@suite', '@suite'])
   assert.equal(report.findings[0].ruleId, 'policy-no-types')
 })
 
-test('findings inside one file are ordered by pointer, by code unit', async () => {
-  disagrees('/cases/Zebra', '/cases/apple')
-
+test('findings inside one source role are ordered by source pointer', async () => {
   const report = await apiReport(fixture(policy(), [
     fixtureCase({ id: 'apple', expect: { decision: 'reject', reason: 'size-empty' } }),
     fixtureCase({ id: 'Zebra', expect: { decision: 'reject', reason: 'size-empty' } }),
@@ -123,8 +119,8 @@ test('findings inside one file are ordered by pointer, by code unit', async () =
     [
       '/cases no-rejection-exercised',
       '/cases reason-unexercised',
-      '/cases/Zebra expected-reject-but-accepted',
-      '/cases/apple expected-reject-but-accepted',
+      '/cases/0 expected-reject-but-accepted',
+      '/cases/1 expected-reject-but-accepted',
     ],
   )
 })
@@ -139,7 +135,7 @@ test('two findings about one case are ordered by rule id, then by emission order
     [fixtureCase({ id: 'one', expect: { decision: 'accept', generatedName: 'upload-stale.png' } })],
   ))
 
-  const about = report.findings.filter((finding) => finding.location.pointer === '/cases/one')
+  const about = report.findings.filter((finding) => finding.location.pointer === '/cases/0')
   assert.deepEqual(about.map((finding) => finding.ruleId), ['generated-name-mismatch', 'generated-name-unsafe'])
   assert.equal((about[1].evidence ?? '').includes('photo'), false)
 })
@@ -156,6 +152,6 @@ test('two runs over the same inputs emit the same bytes, in the same order', asy
   assert.equal(first.stdout, second.stdout)
   assert.deepEqual(
     first.report.findings.map((finding) => `${finding.location.pointer} ${finding.ruleId}`),
-    ['/cases reason-unexercised', '/cases/Zebra expected-reject-but-accepted'],
+    ['/cases reason-unexercised', '/cases/0 expected-reject-but-accepted'],
   )
 })

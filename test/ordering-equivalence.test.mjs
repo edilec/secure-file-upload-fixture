@@ -8,11 +8,11 @@ import { DEFAULT_LIMITS, RULE_SEVERITY, SIGNATURE_NAMES, byCodeUnit } from '../s
  * as gaps.
  *
  * `test/ordering.test.mjs` pins the sites whose values are untrusted -- case
- * ids, document keys, file names, pointers -- by emitting a sequence a
- * collator would emit differently. Five sites remain, and all five order
- * values drawn from alphabets on which code-unit order and English collation
- * agree on every pair: this package's rule ids, its limit names, and the names
- * of the published signatures (which are ordered at three separate sites).
+ * ids and document keys -- by emitting a sequence a collator would emit
+ * differently. Report source roles and pointers are fixed labels or source
+ * ordinals, rather than untrusted names. Other sites order values drawn from
+ * alphabets on which code-unit order and English collation agree on every
+ * pair: rule ids, limit names and published signature names.
  *
  * Substituting a collator at those five is an *equivalent* mutation: the
  * output cannot change, so no test can catch it, and saying so with an
