@@ -245,15 +245,14 @@ are evaluated in id order. The raw id still names `<id>.fixture` under `--out`.
 `location.file` uses the fixed logical source roles `@policy` and `@suite`,
 not the literal `--policy` or `--suite` path. The CLI and API still read the
 exact path supplied. Use the role and pointer with the original input files to
-find an observation. The **name** — never the value — of an unknown key is the
-remaining untrusted report identifier. `docs/upload-policy-rules.md` tabulates
-these carriers, and `test/secrets.test.mjs` measures them with synthetic canaries.
+find an observation. Unknown document keys are refused at their container
+pointer and counted, without copying their names or values.
+`test/secrets.test.mjs` measures the report boundary with synthetic canaries.
 
 Every value the tool *refuses* is described (`a string of 40 character(s)`) and
 never reproduced, the JSON parser's own message included, since it quotes the
-text around the error. Keep secrets out of key names, which remain report
-identifiers. If you use `--out`, keep secrets out of case ids too because they
-become output filenames.
+text around the error. If you use `--out`, keep secrets out of case ids because
+they become output filenames, even though they are absent from report streams.
 
 ## Determinism
 

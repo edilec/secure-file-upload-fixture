@@ -73,7 +73,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
   if (unknown.length > 0) {
     invalid(
       sink, file, pointer,
-      `Case ${label} content has unknown key(s) for kind "${value.kind}": ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      `Case ${label} content has ${unknown.length} unknown key(s) for kind "${value.kind}".`,
       `Known keys for this kind are ${allowed.join(', ')}.`,
     )
     return null
@@ -137,7 +137,7 @@ function compileExpectation(sink, file, pointer, value, label) {
   if (unknown.length > 0) {
     invalid(
       sink, file, pointer,
-      `Case ${label} expectation has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      `Case ${label} expectation has ${unknown.length} unknown key(s).`,
       `Known keys are ${EXPECT_KEYS.join(', ')}.`,
     )
     return null
@@ -209,7 +209,7 @@ export function compileSuite(sink, file, document, limits) {
       file,
       ruleId: 'suite-invalid',
       pointer: '',
-      message: `The suite has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      message: `The suite has ${unknown.length} unknown key(s).`,
       suggestion: `Known keys are ${SUITE_KEYS.join(', ')}.`,
     })
     return null
@@ -255,8 +255,8 @@ export function compileSuite(sink, file, document, limits) {
     if (unknownCaseKeys.length > 0) {
       invalid(
         sink, file, pointer,
-        `Case ${label} has unknown key(s): ${unknownCaseKeys.map((key) => excerpt(key, 40)).join(', ')}.`,
-        `Known keys are ${CASE_KEYS.join(', ')}. The value of an unknown key is never read and never reported.`,
+        `Case ${label} has ${unknownCaseKeys.length} unknown key(s).`,
+        `Known keys are ${CASE_KEYS.join(', ')}. Unknown key names and values are never reported.`,
       )
       continue
     }

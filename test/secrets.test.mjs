@@ -346,32 +346,72 @@ test('a missing private-shaped input basename is not echoed by its unreadable fi
   })
 })
 
+test('unknown policy key names are refused at their source position without being copied', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const scenarios = [
+    [fixture({ ...policy(), [marker]: true }, [fixtureCase()]), '', 0],
+    [fixture(policy({ types: [pngType({ [marker]: true }), txtType()] }), [fixtureCase()]), '/types/0', 1],
+    [fixture(policy({ filenamePolicy: { [marker]: true } }), [fixtureCase()]), '/filenamePolicy', 0],
+  ]
+
+  for (const [files, pointer, checked] of scenarios) {
+    const api = await apiReport(files)
+    const cli = await cliReport(files)
+    for (const report of [api, cli.report]) {
+      assert.equal(report.status, 'incomplete')
+      assert.equal(report.summary.checked, checked)
+      const finding = findingsFor(report, 'policy-invalid')[0]
+      assert.equal(finding.location.file, '@policy')
+      assert.equal(finding.location.pointer, pointer)
+      assert.match(finding.message, /1 unknown key/)
+      assert.equal(JSON.stringify(report).includes(marker), false)
+    }
+    assert.equal(cli.code, 2)
+    assert.equal((cli.stdout + cli.stderr).includes(marker), false)
+  }
+})
+
+test('unknown suite key names are refused at their source position without being copied', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const scenarios = [
+    [{ 'policy.json': policy(), 'suite.json': { ...suiteOf([fixtureCase()]), [marker]: true } }, 'suite-invalid', ''],
+    [fixture(policy(), [{ ...fixtureCase(), [marker]: true }]), 'case-invalid', '/cases/0'],
+    [fixture(policy(), [fixtureCase({ content: { kind: 'padding', byte: 0, bytes: 4, [marker]: true } })]), 'case-invalid', '/cases/0/content'],
+    [fixture(policy(), [fixtureCase({ expect: { decision: 'accept', [marker]: true } })]), 'case-invalid', '/cases/0/expect'],
+  ]
+
+  for (const [files, ruleId, pointer] of scenarios) {
+    const api = await apiReport(files)
+    const cli = await cliReport(files)
+    for (const report of [api, cli.report]) {
+      assert.equal(report.status, 'incomplete')
+      assert.equal(report.summary.checked, 0)
+      const finding = findingsFor(report, ruleId)[0]
+      assert.equal(finding.location.file, '@suite')
+      assert.equal(finding.location.pointer, pointer)
+      assert.match(finding.message, /1 unknown key/)
+      assert.equal(JSON.stringify(report).includes(marker), false)
+    }
+    assert.equal(cli.code, 2)
+    assert.equal((cli.stdout + cli.stderr).includes(marker), false)
+  }
+})
+
 /**
  * The echo boundary, enumerated rather than recalled.
  *
- * Accepted filenames, declared media types, stored names and case ids are
- * private in the report. The NAME of an unknown key still reaches a finding;
- * a valid case id still names a materialised output file under --out.
+ * Candidate values, stored names, case ids and unknown document-key names are
+ * private in the report. A valid case id still names a materialised output
+ * file under --out.
  *
- * The remaining report carrier is there for a reason: a finding needs to say
- * which unknown key to fix, while source ordinals say which case to inspect.
  * The risk is drift: one more field quoted into one more message and a
- * boundary everybody still believes has quietly moved. So it is measured --
- * every plausible carrier of a string gets the canary in turn, and the set
- * that comes back must be exactly the declared set. A new echo fails this
- * test; so does an echo that disappears, because a stale list is the thing
- * being guarded against.
+ * boundary everybody still believes has quietly moved. Every plausible
+ * carrier gets the canary in turn; none belongs in report streams. The one
+ * output-file carrier is measured separately so privacy does not change what
+ * --out writes.
  */
 
-const ECHOED_REPORT_KEYS = Object.freeze([
-  'an unknown key name in a case',
-  'an unknown key name in a policy type',
-  'an unknown key name in content',
-  'an unknown key name in expect',
-  'an unknown key name in filenamePolicy',
-  'an unknown key name in the policy',
-  'an unknown key name in the suite',
-])
+const ECHOED_REPORT_KEYS = Object.freeze([])
 const ECHOED_OUTPUT_FILENAMES = Object.freeze(['the id of an evaluated case'])
 
 const MISMATCH = Object.freeze({ decision: 'reject', reason: 'size-empty' })
@@ -400,7 +440,7 @@ function echoPlantings(canary) {
   }
 }
 
-test('only unknown key names reach reports; case ids still name output files', async () => {
+test('planted private strings stay out of reports; case ids still name output files', async () => {
   const canary = CANARIES['AWS documented example key']
   const reported = []
   const writtenNames = []

@@ -14,6 +14,9 @@ All notable changes to this project are documented in this file.
   `@suite` logical source roles. Previously a valid private-shaped case id or
   custom input basename could leak into JSON or stderr. Raw ids still control
   evaluation order and `--out` filenames; raw input paths still control reads.
+- Unknown policy and suite key names are now counted at the containing source
+  pointer rather than copied into a finding. Unknown keys still invalidate the
+  same input, with the same incomplete outcome.
 - Stored-name expectations that collapse to different display text are now
   refused as incomplete `case-invalid` evidence before comparison. A trailing
   control used to raise `generated-name-mismatch` while printing identical
@@ -78,8 +81,8 @@ All notable changes to this project are documented in this file.
 
 ### Documented
 
-- The remaining report identifier carrier — an unknown key's name — is named,
-  and `test/secrets.test.mjs` measures it rather than restating the list.
+- `test/secrets.test.mjs` measures report and output-file name carriers
+  separately with synthetic canaries.
 - `--help` and `--version` are stated to sit outside the exit-code table: both
   exit 0 with text that is not the report.
 

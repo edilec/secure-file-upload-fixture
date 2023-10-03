@@ -71,13 +71,14 @@ test('every malformed policy field is refused under policy-invalid, at its own p
   }
 })
 
-test('an unknown key is refused and its value is never reported', () => {
+test('an unknown key is refused without reporting its name or value', () => {
   const { result, rows } = refuse(policy({ allowExecutables: 'AKIAIOSFODNN7EXAMPLE' }))
 
   assert.equal(result, null)
   assert.equal(rows[0].ruleId, 'policy-invalid')
-  assert.match(rows[0].message, /allowExecutables/)
-  assert.equal(JSON.stringify(rows).includes('AKIAIOSFODNN7EXAMPLE'), false, 'the key is named; the value is not')
+  assert.equal(rows[0].message, 'The policy has 1 unknown key(s).')
+  assert.equal(JSON.stringify(rows).includes('allowExecutables'), false)
+  assert.equal(JSON.stringify(rows).includes('AKIAIOSFODNN7EXAMPLE'), false)
 })
 
 test('a duplicate extension is refused rather than resolved by document order', async () => {

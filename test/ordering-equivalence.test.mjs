@@ -7,10 +7,10 @@ import { DEFAULT_LIMITS, RULE_SEVERITY, SIGNATURE_NAMES, byCodeUnit } from '../s
  * The ordering sites that cannot be pinned, proved equivalent instead of left
  * as gaps.
  *
- * `test/ordering.test.mjs` pins the sites whose values are untrusted -- case
- * ids and document keys -- by emitting a sequence a collator would emit
- * differently. Report source roles and pointers are fixed labels or source
- * ordinals, rather than untrusted names. Other sites order values drawn from
+ * `test/ordering.test.mjs` pins the case-id walk by emitting a sequence a
+ * collator would emit differently. Unknown document-key names are refused but
+ * no longer rendered. Report source roles and pointers are fixed labels or
+ * source ordinals, rather than untrusted names. Other sites order values drawn from
  * alphabets on which code-unit order and English collation agree on every
  * pair: rule ids, limit names and published signature names.
  *

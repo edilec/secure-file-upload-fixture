@@ -67,7 +67,7 @@ function compileType(sink, file, index, entry) {
   if (unknown.length > 0) {
     invalid(
       sink, file, pointer,
-      `Type entry ${index} has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      `Type entry ${index} has ${unknown.length} unknown key(s).`,
       `Known keys are ${TYPE_KEYS.join(', ')}. An unknown key is refused rather than ignored.`,
     )
     return null
@@ -132,7 +132,7 @@ function compileFilenamePolicy(sink, file, value) {
   if (unknown.length > 0) {
     invalid(
       sink, file, pointer,
-      `filenamePolicy has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
+      `filenamePolicy has ${unknown.length} unknown key(s).`,
       `Known keys are ${FILENAME_POLICY_KEYS.join(', ')}.`,
     )
     return null
@@ -185,8 +185,8 @@ export function compilePolicy(sink, file, document) {
   if (unknown.length > 0) {
     invalid(
       sink, file, '',
-      `The policy has unknown key(s): ${unknown.map((key) => excerpt(key, 40)).join(', ')}.`,
-      `Known keys are ${POLICY_KEYS.join(', ')}. The value of an unknown key is never read and never reported.`,
+      `The policy has ${unknown.length} unknown key(s).`,
+      `Known keys are ${POLICY_KEYS.join(', ')}. Unknown key names and values are never reported.`,
     )
     return null
   }

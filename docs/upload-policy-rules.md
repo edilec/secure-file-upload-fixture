@@ -47,8 +47,8 @@ binary and pins the status, the summary counts and the exit code instead.
 | `types[].signature` | yes | A known signature name, or `null` stated on purpose to record that this type's bytes cannot be checked. A `null` type is counted in `summary.typesWithoutSignature`, and every acceptance made under one raises `signature-unverifiable`. |
 | `types[].maxBytes` | no | A per-type ceiling that overrides `maxBytes` in both directions. |
 
-Unknown keys are refused at every level, and the *value* of a refused key is
-never read and never reported.
+Unknown keys are refused at every level. Findings give the count and containing
+pointer, never the unknown names or values.
 
 Known signature names: `gif89a`, `jpeg`, `pdf`, `png`, `webp`. A signature is a
 byte comparison at fixed offsets, taken from the format's own specification. It
@@ -220,8 +220,8 @@ case before the cases are ordered by code unit and cut.
 
 ## Sanitising
 
-Every untrusted string that remains in report output — chiefly an unknown
-key's name — is stripped of C0 (U+0000–U+001F), DEL (U+007F), C1
+Every untrusted string that remains in report output is stripped of C0
+(U+0000–U+001F), DEL (U+007F), C1
 (U+0080–U+009F), U+2028, U+2029 and the bidi controls (U+200E, U+200F,
 U+202A–U+202E, U+2066–U+2069), collapsed to one line and bounded.
 
@@ -232,23 +232,14 @@ by id. `location.file` is the fixed logical role `@policy` or `@suite`, not
 the literal relative input filename. The CLI and API still read the exact
 supplied path; use the role and pointer with those inputs to locate the source.
 `test/secrets.test.mjs` plants a canary in every plausible carrier and asserts
-the set that comes back, so it fails if the boundary drifts.
+that none enters report streams. Unknown document keys are counted at their
+container pointer — policy, type, `filenamePolicy`, suite, case, `content` or
+`expect` — without reproducing a name or value. Other refused values are
+described (`a string of 40 character(s)`), and the JSON parser's own message
+is not passed through because it quotes text around an error.
 
-| What | Where it appears |
-| --- | --- |
-| the **name** of a key the tool does not know | `policy-invalid`, `suite-invalid` or `case-invalid`, bounded to 40 characters — at policy, type, `filenamePolicy`, suite, case, `content` and `expect` level |
-
-The key name remains because a finding that cannot say which key is a finding
-nobody can act on. Everything else is described and never reproduced:
-a value the tool *refused* becomes `a string of 40 character(s)` — including
-the case id in an id refusal, where the pointer
-already names the position — an unknown key's **value** is never shown even
-where its name is, a description is never shown at all, and the JSON parser's
-own message is not passed through because it quotes the text around the error.
-
-Do not put a secret in a key name: it is a report identifier. If using `--out`,
-also keep secrets out of case ids, which become output filenames even though
-they do not appear in report streams.
+If using `--out`, keep secrets out of case ids: they become output filenames
+even though they do not appear in report streams.
 
 ## What this tool does not do
 

@@ -69,21 +69,26 @@ test('the stored-name counter follows the same code-unit walk', async () => {
   assert.match(mismatches[0].message, /expected a different stored name/)
 })
 
-test('unknown keys in a document are listed by code unit', async () => {
-  disagrees('Zebra', 'apple')
-
+test('unknown document keys are counted without listing their names', async () => {
   const report = await apiReport({
     'policy.json': { ...policy(), apple: 1, Zebra: 2 },
     'suite.json': suiteOf([fixtureCase()]),
   })
 
-  assert.match(findingsFor(report, 'policy-invalid')[0].message, /unknown key\(s\): Zebra, apple\./)
+  const finding = findingsFor(report, 'policy-invalid')[0]
+  assert.equal(finding.message, 'The policy has 2 unknown key(s).')
+  assert.equal(JSON.stringify(report).includes('Zebra'), false)
+  assert.equal(JSON.stringify(report).includes('apple'), false)
 })
 
-test('unknown keys in a case are listed by code unit too', async () => {
+test('unknown case keys are counted at the original case position without listing names', async () => {
   const report = await apiReport(fixture(policy(), [{ ...fixtureCase(), apple: 1, Zebra: 2 }]))
 
-  assert.match(findingsFor(report, 'case-invalid')[0].message, /unknown key\(s\): Zebra, apple\./)
+  const finding = findingsFor(report, 'case-invalid')[0]
+  assert.equal(finding.location.pointer, '/cases/0')
+  assert.equal(finding.message, 'Case 0 has 2 unknown key(s).')
+  assert.equal(JSON.stringify(report).includes('Zebra'), false)
+  assert.equal(JSON.stringify(report).includes('apple'), false)
 })
 
 test('the first unknown limit name reported is the first by code unit', () => {
