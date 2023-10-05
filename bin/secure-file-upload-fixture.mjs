@@ -94,6 +94,8 @@ const VALUE_FLAGS = new Map([
   ['--suite', 'suite'],
 ])
 
+const KNOWN_FLAGS = [...VALUE_FLAGS.keys(), '--json', ...LIMIT_FLAGS.keys(), '-h', '--help', '-v', '--version'].join(', ')
+
 function parseArguments(argv) {
   if (argv.includes('-h') || argv.includes('--help')) return { help: true }
   if (argv.includes('-v') || argv.includes('--version')) return { version: true }
@@ -132,9 +134,7 @@ function parseArguments(argv) {
       const raw = takeValue(argument)
       if (!/^\d{1,12}$/.test(raw) || Number(raw) < 1) throw new Error(`${argument} requires a positive integer`)
       options.limits[LIMIT_FLAGS.get(argument)] = Number(raw)
-    // argv is the one untrusted string that reaches a stream without passing
-    // through a finding, so it is flattened exactly as a finding would be.
-    } else throw new Error(`Unknown option "${excerpt(argument, 60)}"`)
+    } else throw new Error(`Unknown option; known options are ${KNOWN_FLAGS}`)
   }
 
   if (options.root === null) throw new Error('--root is required')

@@ -4,7 +4,7 @@ import test from 'node:test'
 import { readFile, readdir, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { byCodeUnit } from '../src/index.mjs'
+import { byCodeUnit, runFixtureSuite, validateLimits } from '../src/index.mjs'
 import { apiReport, cliReport, cliRun, findingsFor, fixture, fixtureCase, pngType, policy, suiteOf, txtType, withRoot } from './support.mjs'
 
 /**
@@ -118,6 +118,39 @@ test('a limit or option nobody defined is refused without its value', async () =
     assert.equal(result.stdout, '')
     assertUnseen('the argument parser', result.stdout, result.stderr.replace('--secret', ''))
   })
+})
+
+test('unknown API configuration keys are refused without copying their names', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  assert.throws(() => validateLimits({ [marker]: 1 }), (error) => {
+    assert.equal(error instanceof TypeError, true)
+    assert.match(error.message, /Unknown limit/)
+    assert.match(error.message, /maxCases/)
+    assert.equal(error.message.includes(marker), false)
+    return true
+  })
+
+  await withRoot(fixture(policy(), [fixtureCase()]), async (root) => {
+    await assert.rejects(() => runFixtureSuite({ root, [marker]: true }), (error) => {
+      assert.equal(error instanceof TypeError, true)
+      assert.match(error.message, /Unknown option/)
+      assert.match(error.message, /root/)
+      assert.equal(error.message.includes(marker), false)
+      return true
+    })
+  })
+})
+
+test('an unknown CLI flag is refused without copying its spelling to stderr', async () => {
+  const marker = 'SYNTHETIC_SECRET_CANARY'
+  const result = await cliRun([`--${marker}`])
+
+  assert.equal(result.code, 2)
+  assert.equal(result.stdout, '')
+  assert.match(result.stderr, /Unknown option/)
+  assert.match(result.stderr, /--root/)
+  assert.match(result.stderr, /--max-cases/)
+  assert.equal(result.stderr.includes(marker), false)
 })
 
 test('an accepted candidate filename remains private while its mismatch finding remains actionable', async () => {

@@ -91,15 +91,27 @@ test('unknown case keys are counted at the original case position without listin
   assert.equal(JSON.stringify(report).includes('apple'), false)
 })
 
-test('the first unknown limit name reported is the first by code unit', () => {
+test('unknown limit keys are refused without reporting their order or names', () => {
   disagrees('Zebra', 'apple')
 
-  assert.throws(() => validateLimits({ apple: 1, Zebra: 2 }), /Unknown limit "Zebra"/)
+  assert.throws(() => validateLimits({ apple: 1, Zebra: 2 }), (error) => {
+    assert.match(error.message, /Unknown limit/)
+    assert.match(error.message, /maxCases/)
+    assert.equal(error.message.includes('Zebra'), false)
+    assert.equal(error.message.includes('apple'), false)
+    return true
+  })
 })
 
-test('the first unknown option name reported is the first by code unit', async () => {
+test('unknown option keys are refused without reporting their order or names', async () => {
   await withRoot(fixture(policy(), [fixtureCase()]), async (root) => {
-    await assert.rejects(() => runFixtureSuite({ root, apple: 1, Zebra: 2 }), /Unknown option "Zebra"/)
+    await assert.rejects(() => runFixtureSuite({ root, apple: 1, Zebra: 2 }), (error) => {
+      assert.match(error.message, /Unknown option/)
+      assert.match(error.message, /root/)
+      assert.equal(error.message.includes('Zebra'), false)
+      assert.equal(error.message.includes('apple'), false)
+      return true
+    })
   })
 })
 

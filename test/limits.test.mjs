@@ -33,7 +33,7 @@ test('the default limits and their hard caps are exactly these numbers', () => {
 })
 
 test('an unknown limit name throws instead of being ignored', () => {
-  assert.throws(() => validateLimits({ maxCase: 10 }), /Unknown limit "maxCase"/)
+  assert.throws(() => validateLimits({ maxCase: 10 }), /Unknown limit key/)
   assert.throws(() => validateLimits({ maxCase: 10 }), /maxCaseBytes, maxCases, maxFileBytes, maxFindings, maxTotalBytes/)
   assert.throws(() => validateLimits('none'), /limits must be an object/)
 })

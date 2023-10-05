@@ -102,6 +102,6 @@ test('a root that is not a directory is a configuration error, and the API throw
 
 test('an unknown option to the API throws, naming the options that exist', async () => {
   await withRoot(inputs(), async (root) => {
-    await assert.rejects(() => runFixtureSuite({ root, policies: 'policy.json' }), /Unknown option "policies"/)
+    await assert.rejects(() => runFixtureSuite({ root, policies: 'policy.json' }), /Unknown option key; known options are limits, out, policy, root, suite/)
   })
 })

@@ -128,7 +128,7 @@ export function validateLimits(overrides = {}) {
   for (const key of Object.keys(overrides).sort(byCodeUnit)) {
     if (!Object.hasOwn(DEFAULT_LIMITS, key)) {
       throw new TypeError(
-        `Unknown limit "${excerpt(key, 60)}"; known limits are ${Object.keys(DEFAULT_LIMITS).sort(byCodeUnit).join(', ')}`,
+        `Unknown limit key; known limits are ${Object.keys(DEFAULT_LIMITS).sort(byCodeUnit).join(', ')}`,
       )
     }
     const value = overrides[key]
@@ -483,7 +483,7 @@ export async function runFixtureSuite(options = {}) {
   if (!isPlainObject(options)) throw new TypeError('options must be an object')
   for (const key of Object.keys(options).sort(byCodeUnit)) {
     if (!ALLOWED_OPTIONS.includes(key)) {
-      throw new TypeError(`Unknown option "${excerpt(key, 60)}"; known options are ${ALLOWED_OPTIONS.join(', ')}`)
+      throw new TypeError(`Unknown option key; known options are ${ALLOWED_OPTIONS.join(', ')}`)
     }
   }
   const limits = validateLimits(options.limits ?? {})
