@@ -92,7 +92,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
       file,
       ruleId: 'case-too-large',
       pointer: `${pointer}/bytes`,
-      message: `Case ${label} declares ${value.bytes} bytes, above the maxCaseBytes limit of ${limits.maxCaseBytes}; it was not built and not evaluated.`,
+      message: `Case ${label} exceeds maxCaseBytes; it was not built and not evaluated.`,
       suggestion: 'Raise --max-case-bytes, or lower the policy limit the fixture is testing so a smaller fixture can cross it.',
     })
     return null
@@ -120,7 +120,7 @@ function compileContent(sink, file, pointer, value, limits, label) {
   if (value.bytes < needed) {
     invalid(
       sink, file, `${pointer}/bytes`,
-      `Case ${label} asks for a ${value.signature} signature in ${value.bytes} bytes, and the signature needs ${needed}.`,
+      `Case ${label} asks for a ${value.signature} signature in too few bytes; the declared content was not built.`,
       'To exercise content-signature-absent, declare a padding fixture shorter than the signature instead.',
     )
     return null

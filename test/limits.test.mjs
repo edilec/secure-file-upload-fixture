@@ -63,7 +63,7 @@ test('a case above maxCaseBytes is not built, and is not counted as evidence', a
   assert.equal(report.status, 'incomplete')
   assert.equal(report.summary.checked, 1)
   assert.equal(report.summary.unevaluated, 1)
-  assert.match(findingsFor(report, 'case-too-large')[0].message, /maxCaseBytes limit of 1000/)
+  assert.match(findingsFor(report, 'case-too-large')[0].message, /exceeds maxCaseBytes/)
 })
 
 test('the walk stops at maxCases, says how many were left, and does not report a pass', async () => {

@@ -17,6 +17,11 @@ All notable changes to this project are documented in this file.
 - Unknown policy and suite key names are now counted at the containing source
   pointer rather than copied into a finding. Unknown keys still invalidate the
   same input, with the same incomplete outcome.
+- Unknown API limit and option keys and unknown CLI flags are refused with
+  fixed diagnostics listing valid names, without echoing private-shaped input.
+- Compiler findings now use type positions instead of valid extension values,
+  and describe over-limit or short fixture content without copying declared
+  byte counts. Policy validation and incomplete outcomes are unchanged.
 - Stored-name expectations that collapse to different display text are now
   refused as incomplete `case-invalid` evidence before comparison. A trailing
   control used to raise `generated-name-mismatch` while printing identical

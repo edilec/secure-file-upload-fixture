@@ -231,6 +231,10 @@ an original array index such as `/cases/0` even though evaluation is sorted
 by id. `location.file` is the fixed logical role `@policy` or `@suite`, not
 the literal relative input filename. The CLI and API still read the exact
 supplied path; use the role and pointer with those inputs to locate the source.
+Compiler findings identify a policy type by `/types/N`, never by copying its
+extension, and name `maxCaseBytes` or the short-signature condition without
+copying declared byte counts. Unknown API and CLI option diagnostics list
+valid names but do not quote the unknown spelling.
 `test/secrets.test.mjs` plants a canary in every plausible carrier and asserts
 that none enters report streams. Unknown document keys are counted at their
 container pointer — policy, type, `filenamePolicy`, suite, case, `content` or

@@ -14,7 +14,7 @@
  */
 
 import { SIGNATURES } from './signatures.mjs'
-import { byCodeUnit, describeValue, excerpt, isPlainObject, unknownKeys } from './text.mjs'
+import { byCodeUnit, describeValue, isPlainObject, unknownKeys } from './text.mjs'
 
 export const POLICY_SCHEMA_VERSION = '1'
 
@@ -83,7 +83,7 @@ function compileType(sink, file, index, entry) {
   if (!Array.isArray(entry.mimeTypes) || entry.mimeTypes.length === 0 || entry.mimeTypes.length > MAX_MIME_TYPES_PER_TYPE) {
     invalid(
       sink, file, `${pointer}/mimeTypes`,
-      `Type "${excerpt(entry.extension, 16)}" needs between 1 and ${MAX_MIME_TYPES_PER_TYPE} declared media types; it has ${describeValue(entry.mimeTypes)}.`,
+      `Type entry ${index} needs between 1 and ${MAX_MIME_TYPES_PER_TYPE} declared media types; it has ${describeValue(entry.mimeTypes)}.`,
     )
     return null
   }
@@ -92,7 +92,7 @@ function compileType(sink, file, index, entry) {
     if (typeof mimeType !== 'string' || !MEDIA_TYPE.test(mimeType)) {
       invalid(
         sink, file, `${pointer}/mimeTypes/${position}`,
-        `Type "${excerpt(entry.extension, 16)}" declares a media type that is not a lowercase type/subtype pair; it is ${describeValue(mimeType)}.`,
+        `Type entry ${index} declares a media type that is not a lowercase type/subtype pair; it is ${describeValue(mimeType)}.`,
         'Declare media types without parameters, for example image/png rather than image/png; charset=binary.',
       )
       return null
@@ -102,7 +102,7 @@ function compileType(sink, file, index, entry) {
   if (!(entry.signature === null || (typeof entry.signature === 'string' && Object.hasOwn(SIGNATURES, entry.signature)))) {
     invalid(
       sink, file, `${pointer}/signature`,
-      `Type "${excerpt(entry.extension, 16)}" must name a known signature or state null; it is ${describeValue(entry.signature)}.`,
+      `Type entry ${index} must name a known signature or state null; it is ${describeValue(entry.signature)}.`,
       `Known signatures are ${Object.keys(SIGNATURES).sort(byCodeUnit).join(', ')}. State null to record on purpose that this type's bytes cannot be checked.`,
     )
     return null
@@ -110,7 +110,7 @@ function compileType(sink, file, index, entry) {
   if (entry.maxBytes !== undefined && !integerBetween(entry.maxBytes, 0, MAX_POLICY_BYTES)) {
     invalid(
       sink, file, `${pointer}/maxBytes`,
-      `Type "${excerpt(entry.extension, 16)}" has a maxBytes that is not an integer between 0 and ${MAX_POLICY_BYTES}; it is ${describeValue(entry.maxBytes)}.`,
+      `Type entry ${index} has a maxBytes that is not an integer between 0 and ${MAX_POLICY_BYTES}; it is ${describeValue(entry.maxBytes)}.`,
     )
     return null
   }
@@ -253,7 +253,7 @@ export function compilePolicy(sink, file, document) {
     if (types.has(type.extension)) {
       invalid(
         sink, file, `/types/${index}/extension`,
-        `Extension "${excerpt(type.extension, 16)}" is declared more than once, so which entry governs it would depend on document order.`,
+        `Type entry ${index} has an extension declared more than once, so which entry governs it would depend on document order.`,
       )
       continue
     }
@@ -271,12 +271,8 @@ export function compilePolicy(sink, file, document) {
     mimeIndex,
     declaredTypes: document.types.length,
     compiledTypes: compiled,
-    // The extensions whose bytes this policy says cannot be checked. Named
-    // rather than counted, because "two types are unverifiable" and "the two
-    // types your executables would arrive under are unverifiable" are
-    // different sentences to the person reading the report. An extension is
-    // already bounded to 1-8 lowercase letters or digits by compileType, so
-    // this list carries nothing from the file that the type table does not.
+    // Keep exact extensions for internal matching; reports expose only counts
+    // and source positions, because even a valid extension may be private.
     unverifiableTypes: [...types.values()]
       .filter((type) => type.signature === null)
       .map((type) => type.extension)

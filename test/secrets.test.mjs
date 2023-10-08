@@ -430,6 +430,85 @@ test('unknown suite key names are refused at their source position without being
   }
 })
 
+test('a valid private-shaped policy extension remains private in compiler findings', async () => {
+  const marker = 's3cr3t77'
+  const scenarios = [
+    [pngType({ extension: marker, mimeTypes: [] }), '/types/0/mimeTypes'],
+    [pngType({ extension: marker, mimeTypes: ['invalid'] }), '/types/0/mimeTypes/0'],
+    [pngType({ extension: marker, signature: 'invalid' }), '/types/0/signature'],
+    [pngType({ extension: marker, maxBytes: -1 }), '/types/0/maxBytes'],
+  ]
+
+  for (const [type, pointer] of scenarios) {
+    const files = fixture(policy({ types: [type, txtType()] }), [fixtureCase()])
+    const api = await apiReport(files)
+    const cli = await cliReport(files)
+    for (const report of [api, cli.report]) {
+      assert.equal(report.status, 'incomplete')
+      assert.equal(report.summary.types, 1)
+      const finding = findingsFor(report, 'policy-invalid')[0]
+      assert.equal(finding.location.file, '@policy')
+      assert.equal(finding.location.pointer, pointer)
+      assert.match(finding.message, /Type entry 0/)
+      assert.equal(JSON.stringify(report).includes(marker), false)
+    }
+    assert.equal(cli.code, 2)
+    assert.equal((cli.stdout + cli.stderr).includes(marker), false)
+  }
+})
+
+test('a duplicate valid private-shaped extension is located without being copied', async () => {
+  const marker = 's3cr3t77'
+  const files = fixture(policy({ types: [
+    pngType({ extension: marker }),
+    pngType({ extension: marker, mimeTypes: ['image/apng'] }),
+  ] }), [fixtureCase()])
+  const api = await apiReport(files)
+  const cli = await cliReport(files)
+
+  for (const report of [api, cli.report]) {
+    assert.equal(report.status, 'incomplete')
+    assert.equal(report.summary.types, 1)
+    const finding = findingsFor(report, 'policy-invalid')[0]
+    assert.equal(finding.location.pointer, '/types/1/extension')
+    assert.match(finding.message, /more than once/)
+    assert.equal(JSON.stringify(report).includes(marker), false)
+  }
+  assert.equal(cli.code, 2)
+  assert.equal((cli.stdout + cli.stderr).includes(marker), false)
+})
+
+test('valid suite byte counts in compiler findings remain private while limits remain enforceable', async () => {
+  const declaredBytes = 314160
+  const caseLimit = 314159
+  const files = fixture(policy(), [fixtureCase({
+    content: { kind: 'padding', byte: 0, bytes: declaredBytes },
+  })])
+  const tooLarge = await apiReport(files, { limits: { maxCaseBytes: caseLimit } })
+  const cli = await cliReport(files, ['--max-case-bytes', String(caseLimit)])
+  const finding = findingsFor(tooLarge, 'case-too-large')[0]
+
+  assert.equal(cli.code, 2)
+  for (const report of [tooLarge, cli.report]) {
+    assert.equal(report.status, 'incomplete')
+    assert.equal(report.summary.checked, 0)
+    assert.equal(JSON.stringify(report).includes(String(declaredBytes)), false)
+    assert.equal(JSON.stringify(report).includes(String(caseLimit)), false)
+  }
+  assert.equal(finding.location.pointer, '/cases/0/content/bytes')
+  assert.match(finding.message, /maxCaseBytes/)
+  assert.equal((cli.stdout + cli.stderr).includes(String(declaredBytes)), false)
+  assert.equal((cli.stdout + cli.stderr).includes(String(caseLimit)), false)
+
+  const tooShort = await apiReport(fixture(policy(), [fixtureCase({
+    content: { kind: 'signature', signature: 'png', bytes: 1 },
+  })]))
+  assert.equal(tooShort.status, 'incomplete')
+  assert.equal(findingsFor(tooShort, 'case-invalid')[0].location.pointer, '/cases/0/content/bytes')
+  assert.match(findingsFor(tooShort, 'case-invalid')[0].message, /signature/)
+  assert.equal(/signature in 1 bytes/.test(findingsFor(tooShort, 'case-invalid')[0].message), false)
+})
+
 /**
  * The echo boundary, enumerated rather than recalled.
  *
