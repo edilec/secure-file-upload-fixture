@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1",
+  "maxBytes": 4096,
+  "allowEmpty": true,
+  "allowMultipleExtensions": true,
+  "onUnknown": "reject",
+  "filenamePolicy": {
+    "style": "sequence",
+    "prefix": "upload-",
+    "preserveOriginalName": true
+  },
+  "types": [
+    {
+      "extension": "png",
+      "mimeTypes": ["image/png"],
+      "signature": "png"
+    },
+    {
+      "extension": "txt",
+      "mimeTypes": ["text/plain"],
+      "signature": null
+    }
+  ]
+}

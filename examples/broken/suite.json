@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1",
+  "cases": [
+    {
+      "id": "a-double-extension",
+      "description": "The suite expects a double extension to be refused; this policy allows more than one extension component, so it is accepted.",
+      "filename": "invoice.pdf.png",
+      "declaredMimeType": "image/png",
+      "content": { "kind": "signature", "signature": "png", "bytes": 128 },
+      "expect": { "decision": "reject", "reason": "extension-multiple" }
+    },
+    {
+      "id": "b-stored-name",
+      "description": "The expectation records the stored name from before the policy started keeping the uploaded stem.",
+      "filename": "notes.txt",
+      "declaredMimeType": "text/plain",
+      "content": { "kind": "padding", "byte": 65, "bytes": 16 },
+      "expect": { "decision": "accept", "generatedName": "upload-000002.txt" }
+    },
+    {
+      "id": "c-pdf-upload",
+      "description": "The suite expects PDF uploads to work; this policy no longer declares the type.",
+      "filename": "report.pdf",
+      "declaredMimeType": "application/pdf",
+      "content": { "kind": "signature", "signature": "pdf", "bytes": 512 },
+      "expect": { "decision": "accept" }
+    },
+    {
+      "id": "d-oversize-png",
+      "description": "The fixture is over the size limit and also declares a media type the policy does not know, so it is refused before the size is ever looked at.",
+      "filename": "poster.png",
+      "declaredMimeType": "image/x-unknown",
+      "content": { "kind": "signature", "signature": "png", "bytes": 8192 },
+      "expect": { "decision": "reject", "reason": "size-over-limit" }
+    }
+  ]
+}

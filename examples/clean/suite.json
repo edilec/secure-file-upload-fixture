@@ -1,0 +1,288 @@
+{
+  "schemaVersion": "1",
+  "cases": [
+    {
+      "id": "accept-jpeg-signature",
+      "description": "A JPEG header and zero padding: accepted, stored under a digest name.",
+      "filename": "scan.jpg",
+      "declaredMimeType": "image/jpeg",
+      "content": {
+        "kind": "signature",
+        "signature": "jpeg",
+        "bytes": 256
+      },
+      "expect": {
+        "decision": "accept",
+        "generatedName": "upload-115865ee563c93918dd97eb3aa8dcc6d.jpg"
+      }
+    },
+    {
+      "id": "accept-pdf-signature",
+      "description": "A PDF header and zero padding.",
+      "filename": "terms.pdf",
+      "declaredMimeType": "application/pdf",
+      "content": {
+        "kind": "signature",
+        "signature": "pdf",
+        "bytes": 512
+      },
+      "expect": {
+        "decision": "accept",
+        "generatedName": "upload-46f591f540baa2c6fe88b17b19891563.pdf"
+      }
+    },
+    {
+      "id": "accept-png-signature",
+      "description": "A PNG signature and zero padding, inside the per-type size limit.",
+      "filename": "Holiday Photo (final).PNG",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "signature",
+        "signature": "png",
+        "bytes": 1024
+      },
+      "expect": {
+        "decision": "accept",
+        "generatedName": "upload-c889ec5faf131e7a2a89786eceb56027.png"
+      }
+    },
+    {
+      "id": "accept-text-padding",
+      "description": "Sixty-four repeated bytes for a type whose bytes cannot be checked.",
+      "filename": "notes.txt",
+      "declaredMimeType": "text/plain",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 64
+      },
+      "expect": {
+        "decision": "accept",
+        "generatedName": "upload-d53eda7a637c99cc7fb566d96e9fa109.txt"
+      }
+    },
+    {
+      "id": "reject-empty-file",
+      "description": "Zero bytes, which this policy does not accept.",
+      "filename": "empty.txt",
+      "declaredMimeType": "text/plain",
+      "content": {
+        "kind": "empty"
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "size-empty"
+      }
+    },
+    {
+      "id": "reject-extension-multiple",
+      "description": "Two extension components; this policy accepts one.",
+      "filename": "invoice.pdf.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "signature",
+        "signature": "png",
+        "bytes": 128
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "extension-multiple"
+      }
+    },
+    {
+      "id": "reject-extension-unknown",
+      "description": "The fail-closed default: an extension the allow-list does not name.",
+      "filename": "setup.exe",
+      "declaredMimeType": "application/pdf",
+      "content": {
+        "kind": "padding",
+        "byte": 0,
+        "bytes": 32
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "extension-unknown"
+      }
+    },
+    {
+      "id": "reject-no-extension",
+      "description": "Nothing to match against the allow-list.",
+      "filename": "README",
+      "declaredMimeType": "text/plain",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 16
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "extension-missing"
+      }
+    },
+    {
+      "id": "reject-no-filename",
+      "description": "An upload that declared no name at all.",
+      "filename": "",
+      "declaredMimeType": "text/plain",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 16
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "filename-empty"
+      }
+    },
+    {
+      "id": "reject-no-mime",
+      "description": "An upload that declared no media type.",
+      "filename": "notes.txt",
+      "declaredMimeType": "",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 16
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "mime-missing"
+      }
+    },
+    {
+      "id": "reject-oversize-png",
+      "description": "An inert oversized file: the PNG header is real and the size is over the per-type limit.",
+      "filename": "poster.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "signature",
+        "signature": "png",
+        "bytes": 4096
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "size-over-limit"
+      }
+    },
+    {
+      "id": "reject-path-segment",
+      "description": "A name that is a location rather than a file.",
+      "filename": "images/holiday.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "signature",
+        "signature": "png",
+        "bytes": 128
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "filename-path-segment"
+      }
+    },
+    {
+      "id": "reject-reserved-name",
+      "description": "A Windows device name, whatever extension follows it.",
+      "filename": "CON.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "signature",
+        "signature": "png",
+        "bytes": 128
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "filename-reserved"
+      }
+    },
+    {
+      "id": "reject-rtl-override",
+      "description": "A right-to-left override, the classic way to display an executable extension as an image one.",
+      "filename": "photo\u202egnp.exe",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "padding",
+        "byte": 0,
+        "bytes": 32
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "filename-unsafe-characters"
+      }
+    },
+    {
+      "id": "reject-signature-absent",
+      "description": "Too short to carry the signature the policy requires.",
+      "filename": "tiny.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "padding",
+        "byte": 0,
+        "bytes": 4
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "content-signature-absent"
+      }
+    },
+    {
+      "id": "reject-signature-mismatch",
+      "description": "The name and the declared type say PNG; the leading bytes do not.",
+      "filename": "fake.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 64
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "content-signature-mismatch"
+      }
+    },
+    {
+      "id": "reject-too-long-name",
+      "description": "A name longer than this validator will consider.",
+      "filename": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "signature",
+        "signature": "png",
+        "bytes": 128
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "filename-too-long"
+      }
+    },
+    {
+      "id": "reject-wrong-mime-for-extension",
+      "description": "A media type the policy knows, declared for the wrong extension.",
+      "filename": "notes.txt",
+      "declaredMimeType": "image/png",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 16
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "mime-extension-mismatch"
+      }
+    },
+    {
+      "id": "reject-unknown-mime",
+      "description": "A media type this policy knows nothing about.",
+      "filename": "notes.txt",
+      "declaredMimeType": "application/x-msdownload",
+      "content": {
+        "kind": "padding",
+        "byte": 65,
+        "bytes": 16
+      },
+      "expect": {
+        "decision": "reject",
+        "reason": "mime-unknown"
+      }
+    }
+  ]
+}
