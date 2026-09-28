@@ -21,8 +21,10 @@ script. A fixture here demonstrates a *policy decision*; it is never an attack.
 ## Install
 
 ```sh
-npm install secure-file-upload-fixture
+npm install github:edilec/secure-file-upload-fixture
 ```
+
+This installs the public GitHub source; `secure-file-upload-fixture` is not published to npm.
 
 Or run it from a checkout with no install step at all — the package has no
 runtime and no development dependencies.
@@ -30,8 +32,8 @@ runtime and no development dependencies.
 ## Use
 
 ```sh
-secure-file-upload-fixture --root examples/clean
-secure-file-upload-fixture --root examples/broken --json | jq '.findings[].ruleId'
+npx secure-file-upload-fixture --root examples/clean
+npx secure-file-upload-fixture --root examples/broken --json | jq '.findings[].ruleId'
 ```
 
 A **run** puts the JSON report on stdout and nothing else, so stdout pipes
@@ -51,7 +53,7 @@ To write the fixtures out — so an external validator, a form or a staging
 service can be fed the same bytes by hand — pass a directory:
 
 ```sh
-secure-file-upload-fixture --root examples/clean --out ./built
+npx secure-file-upload-fixture --root examples/clean --out ./built
 ```
 
 One file per evaluated case, named `<case-id>.fixture`. Nothing is ever
