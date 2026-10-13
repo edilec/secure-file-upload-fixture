@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## 0.1.0 — 2026-10-14
 
 ### Fixed
 
@@ -91,4 +91,4 @@ All notable changes to this project are documented in this file.
 - `--help` and `--version` are stated to sit outside the exit-code table: both
   exit 0 with text that is not the report.
 
-No release has been published.
+GitHub source release v0.1.0 — 2026-10-14.
